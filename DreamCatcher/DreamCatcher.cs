@@ -146,6 +146,7 @@ namespace DreamCatcher
       else if (sceneName.Contains("Fungus3")) { return "Queen's Gardens"; }
       // else if (sceneName.Contains("Fungus1_") || sceneName.Contains('White_Palace') { return "Greenpath"; }
       else if (sceneName.Contains("Cliffs")) { return "Howling Cliffs"; }
+      else if (sceneName.Contains("Town") || sceneName.Contains("Tutorial")) { return "Dirtmouth"; }
       else { return "Unknown! Please Record This Area!"; }
     }
   }
