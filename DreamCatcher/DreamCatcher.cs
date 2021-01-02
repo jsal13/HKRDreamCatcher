@@ -127,8 +127,10 @@ namespace DreamCatcher
     }*/
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-      Thread.Sleep(100);
+      Thread.Sleep(200);
+      Send(scene.name);
       var sceneNameParsed = SceneToAreaMapping(scene.name);
+      Send(sceneNameParsed);
       Send($"\"scene\": {scene.name}, \"scene_parsed\": {sceneNameParsed}");
     }
 
