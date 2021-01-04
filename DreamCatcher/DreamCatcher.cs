@@ -10,8 +10,14 @@ namespace DreamCatcher
 {
   internal class SocketServer : WebSocketBehavior
   {
+
+    private string currentArea = "";
+
     public SocketServer() => IgnoreExtensions = true;
     public void Broadcast(string s) => Sessions.Broadcast(s);
+
+    protected override void OnMessage(MessageEventArgs e) => Send(e.Data);
+    protected override void OnError(ErrorEventArgs e) => Send(e.Message);
 
     private static readonly string[] itemsToIgnore = {
 "atBench",
@@ -102,19 +108,16 @@ namespace DreamCatcher
 "slyRescued",
 "visitedDirtmouth",
     };
-
-    protected override void OnMessage(MessageEventArgs e) => Send(e.Data);
-    protected override void OnError(ErrorEventArgs e) => Send(e.Message);
-
     /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
     /// https://radiance.host/apidocs/Hooks.html
-/*    public void MessageBool(string item, bool value)
+
+    public void MessageBool(string item, bool value)
     {
       if (itemsToIgnore.Contains(item))
       {
         return;
       }
-      Send($"\"{item}\": {value}");
+      Send($"\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"");
     }
     public void MessageInt(string item, int value)
     {
@@ -123,16 +126,15 @@ namespace DreamCatcher
         return;
       }
 
-      Send($"\"{item}\": {value}");
-    }*/
+      Send($"\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"");
+    }
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
       Thread.Sleep(200);
-      var sceneNameParsed = SceneToAreaMapping(scene.name);
-      Send($"\"scene\": {scene.name}, \"scene_parsed\": {sceneNameParsed}");
+      SceneToAreaMapping(scene.name);  // Sets the 'currentRoom' class var.
+      Send($"\"scene\": {scene.name}, \"scene_parsed\": {this.currentArea}");
     }
-
-    public string SceneToAreaMapping(string sceneName)
+    public void SceneToAreaMapping(string sceneName)
     {
       Dictionary<string, string> roomMappings = new Dictionary<string, string>() {
         { "Abyss_01", "Royal_Waterways" },
@@ -252,6 +254,7 @@ namespace DreamCatcher
         { "Deepnest_East_18", "Kingdoms_Edge"},
         { "Deepnest_East_Hornet", "Kingdoms_Edge"},
         { "Deepnest_Spider_Town", "Deepnest"},
+        { "Dream_NailCollection", "Resting Grounds" },
         { "Fungus1_01", "Greenpath"},
         { "Fungus1_01b", "Greenpath"},
         { "Fungus1_02", "Greenpath"},
@@ -418,7 +421,7 @@ namespace DreamCatcher
         { "Room_nailsmith", "City_of_Tears"},
         { "Room_Ouiji", "Dirtmouth"},
         { "Room_Queen", "Queens_Gardens"},
-        { "Room_ruinhouse", "City_of_Tears"},
+        { "Room_ruinhouse", "Forgotten Crossroads"},
         { "Room_shop", "Dirtmouth"},
         { "Room_Slug_Shrine", "Greenpath"},
         { "Room_spider_small", "Deepnest"},
@@ -504,8 +507,7 @@ namespace DreamCatcher
         { "White_Palace_19", "White_Palace"},
         { "White_Palace_20", "White_Palace"}
       };
-
-        return roomMappings[sceneName];
+        this.currentArea = roomMappings[sceneName];
     }
   }
 
@@ -523,12 +525,9 @@ namespace DreamCatcher
       Instance = this;
       Log("Initializing Dreamcatcher HKDataDump...");
       _wss.AddWebSocketService<SocketServer>("/data", ss=> {
-/*        ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
-        ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;*/
+        ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
+        ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
-        
-        
-
       });
       _wss.Start();
       Log("Initialized Dreamcatcher HKDataDump!");
