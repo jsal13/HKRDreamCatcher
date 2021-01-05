@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DreamCatcher", "DreamCatcher\DreamCatcher.csproj", "{BCD22949-AD4A-44B5-9C8F-DFDE3D88911A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DreamCatcher", "DreamCatcher.csproj", "{BCD22949-AD4A-44B5-9C8F-DFDE3D88911A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {2841B6B8-F6DA-42C6-B701-10EB80CCB842}
+		SolutionGuid = {25EE2DCF-1FE3-492A-B0D3-B84AA368CE44}
 	EndGlobalSection
 EndGlobal

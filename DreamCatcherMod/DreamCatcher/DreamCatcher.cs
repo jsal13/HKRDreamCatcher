@@ -19,120 +19,26 @@ namespace DreamCatcher
     protected override void OnMessage(MessageEventArgs e) => Send(e.Data);
     protected override void OnError(ErrorEventArgs e) => Send(e.Message);
 
-    private static readonly string[] itemsToIgnore = {
-"atBench",
-"atMapPrompt",
-"backerCredits",
-"bankerTheftCheck",
-"beamDamage",
-"blockerHits",
-"charmBenchMsg",
-"charmSlots",
-"charmSlotsFilled",
-"charmSlotsFilled",
-"charmsOwned",
-"corn_abyssLeft",
-"corn_cityLeft",
-"corn_cliffsLeft",
-"corn_deepnestLeft",
-"corn_fogCanyonLeft",
-"corn_fungalWastesLeft",
-"corn_greenpathLeft",
-"corn_minesLeft",
-"corn_outskirtsLeft",
-"corn_royalGardensLeft",
-"corn_waterwaysLeft",
-"corniferAtHome",
-"currentArea",
-"currentInvPane",
-"damagedBlue",
-"disablePause",
-"elderbugFirstCall",
-"elderbugHistory1",
-"elderbugSpeechFinalBossDoor",
-"elderbugSpeechMapShop",
-"enteredTutorialFirstTime",
-"environmentType",
-"environmentTypeDefault",
-"equippedCharm_2",
-"geo",
-"hasGodfinder",
-"hasMap",
-"hasQuill",
-"hazardRespawnFacingRight",
-"health",
-"healthBlue",
-"isFirstGame",
-"isInvincible",
-"joniHealthBlue",
-"journalEntriesCompleted",
-"journalEntriesTotal",
-"journalNotesCompleted",
-"killedBuzzer",
-"killsBlocker",
-"killsClimber",
-"mapAbyss",
-"mapAllRooms",
-"mapCity",
-"mapCliffs",
-"mapCrossroads",
-"mapDeepnest",
-"mapDirtmouth",
-"mapFogCanyon",
-"mapFungalWastes",
-"mapGreenpath",
-"mapMines",
-"mapOutskirts",
-"mapRestingGrounds",
-"mapRoyalGardens",
-"mapWaterways",
-"maxHealth",
-"metElderbug",
-"MPCharge",
-"MPReserve",
-"newDataBuzzer",
-"openedMapperShop",
-"openedSlyShop",
-"openingCreditsPlayed",
-"overcharmed",
-"permadeathMode",
-"prevHealth",
-"previousDarkness",
-"quirrelCityEncountered",
-"quirrelLeftEggTemple",
-"RandomizerMod.Bool.Godtuner.Sly",
-"respawnFacingRight",
-"respawnType",
-"royalCharmState",
-"shamanPillar",
-"slyRescued",
-"visitedDirtmouth",
-    };
     /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
     /// https://radiance.host/apidocs/Hooks.html
 
     public void MessageBool(string item, bool value)
     {
-      if (itemsToIgnore.Contains(item))
-      {
-        return;
-      }
-      Send($"\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"");
+      if (State != WebSocketState.Open) { return; }
+      var lowercaseBool = value ? "true" : "false";
+      Send($"{{\"{item}\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageInt(string item, int value)
     {
-      if (itemsToIgnore.Contains(item))
-      {
-        return;
-      }
-
-      Send($"\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"");
+      if (State != WebSocketState.Open) { return; }
+      Send($"{{\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
+      if (State != WebSocketState.Open) { return; }
       Thread.Sleep(200);
       SceneToAreaMapping(scene.name);  // Sets the 'currentRoom' class var.
-      Send($"\"scene\": {scene.name}, \"scene_parsed\": {this.currentArea}");
+      Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
     }
     public void SceneToAreaMapping(string sceneName)
     {
