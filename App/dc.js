@@ -107,7 +107,7 @@ function _makeItemsToTrackArray() {
 }
 
 function handleMessage(m) {
-  console.log("RAW: ", m)
+  console.log(m)
   var j = JSON.parse(m)
   if (relevantEvents.includes(Object.keys(j)[0])) {
     console.log(j)
@@ -126,24 +126,40 @@ function plotItemsOnPage() {
     var circleStyle = `background: ${locData[areas[idx]]['border']}; 
         border: 2px solid ${locData[areas[idx]]['border']};`
 
-    html_ += `<div class="loc-div" style="${divStyle}">`
-    html_ += `<div class="loc-circle" style="${circleStyle}">`
-    html_ += `<div class="loc-title-div"> <span class="loc-title-text">${locData[areas[idx]]["abbr"]}</span></div>`
-    html_ += '</div>'
-    html_ += '</div>'
-
-
-    html_ += `<div class="item-div"> <div class="flex-container">`
+    // All the image tags for the tracker.
+    var trackerImages_ = ""
     for (var jdx = 0; jdx < areaItems[areas[idx]].length; jdx++) {
-      html_ += `<div class="tracker-image"><img class="item-image" src="./images/${itemToImageNameMapping[areaItems[areas[idx]][jdx]]}"/></div>`
+      trackerImages_ += `
+        <div class="tracker-image">
+          <img class="item-image" src="./images/${itemToImageNameMapping[areaItems[areas[idx]][jdx]]}"/>
+        </div>`
     }
-    html_ += `</div></div >`
-    html_ += '</div>'
+
+    html_ += `
+    <div class="area-pill-inner" style="${divStyle}">
+      <div class="area-pill-rounded-edge" style="${circleStyle}">
+        <div class="area-pill-area-title-div">
+          <span class="area-pill-area-title-text">${locData[areas[idx]]["abbr"]}</span>
+        </div>
+      </div>
+      <div class="pill-items-container">
+        ${trackerImages_}
+      </div>
+    </div>`
+    html_ += `</div>` // Closes <div class="area-pill">
   }
 
   $("#tracker-table").append(html_)
+  $('.tracker-image').on('click', function () {
+    $(this).toggleClass("dimmed");
+  })
 }
 
+
+function dimImage(item, loc) {
+  // make the outer div have loc name as an id, have the items have the item name as their id?  something like this?
+
+}
 
 function initialize() {
 
@@ -159,8 +175,8 @@ function initialize() {
   });
 
   // Main method for the JS to initialize the WS.
-  // const wsObj = wsFactory()
-  // wsObj.connect("ws://localhost:10051/data")
+  const wsObj = wsFactory()
+  wsObj.connect("ws://localhost:10051/data")
 }
 
 $(window).on('load', function () { initialize(); })

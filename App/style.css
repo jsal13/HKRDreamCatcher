@@ -1,47 +1,48 @@
-.item-image {
-  width: 30px;
-  height: 30px;
+body {
+  background-color: transparent;
 }
 
-.flex-container {
-  display: flex; /* or inline-flex */
+.area-pill {
+  /* Div encloses an entire pill. */
+  display: flex;
+  margin-top: -6px;
 }
 
-/* styleLocDiv() {
-  return `background-color: ${this.arrayLocDataObj[this.loc].background}; 
-  border: 6px solid ${this.arrayLocDataObj[this.loc].border};
-  width: ${80 + this.arrayLocDataObj[this.loc]["items"].length * 41}px;`;
-}, */
-
-/* styleLocCircle() {
-return `background-color: ${this.arrayLocDataObj[this.loc].border};
-border: 2px solid ${this.arrayLocDataObj[this.loc].border};`; */
-
-
-.loc-div {
+.area-pill-inner {
+  /* Inside + Background of a pill area. */
   position: relative;
-  height: 62px;
+  display: flex;
   border-radius: 4rem;
+  padding-right: 10px;
+  height: 62px;
+  top: 6px;
+  left: 70px;
 }
 
-.loc-circle {
-  position: absolute;
+.area-pill-rounded-edge {
+  /* Rounded edge of a pill. */
+  position: relative;
+  display: flex;
+  border-top-left-radius: 4rem;
+  border-bottom-left-radius: 4rem;
   width: 68px;
   height: 62px;
   top: -6px;
   left: -6px;
-  border-top-left-radius: 4rem;
-  border-bottom-left-radius: 4rem;
   padding: 0;
   margin: 0;
 }
 
-.loc-title-div {
-  position: absolute;
+.area-pill-area-title-div {
+  /* Div holding the area title on the pill. */
+  position: relative;
+  display: flex;
   left: 15px;
-  top: 13px;
+  top: 16px;
 }
-.loc-title-text {
+
+.area-pill-area-title-text {
+  /* The pill area text. */
   font-family: "Roboto", sans-serif;
   font-size: 1rem;
   font-weight: 500;
@@ -53,8 +54,21 @@ border: 2px solid ${this.arrayLocDataObj[this.loc].border};`; */
   cursor: default;
 }
 
-.item-div {
-  position: absolute;
-  left: 65px;
-  top: 3px;
+.pill-items-container {
+  /* Contains each of the items in an area row. */
+  display: flex;
+  position: relative;
+  top: 6px;
+}
+
+.item-image {
+  /* Image used to represent an item in the table.  */
+  width: 36px;
+  height: 36px;
+  margin-right: 2px
+}
+
+.dimmed {
+  /* Used to turn opactiy down on an image. */
+  opacity: 0.3;
 }
