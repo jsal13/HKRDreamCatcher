@@ -15,7 +15,6 @@ namespace DreamCatcher
   {
 
     private string currentArea = "";
-    private bool gotUserSpoiler = false;
 
     //  Import Json for Scene:Area map.
     /*    private static readonly string p_ = Path.Combine(Application.dataPath, "room_mappings.json");
@@ -400,7 +399,11 @@ namespace DreamCatcher
   public SocketServer() => IgnoreExtensions = true;
     public void Broadcast(string s) => Sessions.Broadcast(s);
 
-    protected override void OnMessage(WebSocketSharp.MessageEventArgs e) => Send(e.Data);
+    protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
+    {
+      if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+      else { Send(e.Data); }
+    }
     protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
 
     /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
@@ -417,23 +420,15 @@ namespace DreamCatcher
       if (State != WebSocketState.Open) { return; }
       Send($"{{\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"}}");
     }
-    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
     {
       if (State != WebSocketState.Open) { return; }
           // Reads the user Rando Spoilerlog.
       Thread.Sleep(200);
-      if (!this.gotUserSpoiler)
-      {
-        string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
-        string spoilerLog = System.IO.File.ReadAllText(userDataPath);
-        this.gotUserSpoiler = true;
-        Send($"{{\"spoiler\": \"{spoilerLog}\"}}");
-      }
-
       this.currentArea = (string) this.roomMappings[scene.name];
       Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
-
     }
+
   }
 }
 

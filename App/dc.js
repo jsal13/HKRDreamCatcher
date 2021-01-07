@@ -15,6 +15,7 @@ function wsFactory() {
         ws.onopen = e => {
           console.log(`WS connection Status: ${e.target.readyState}`);
           v(ws);
+          ws.send("/getspoiler")
         };
         ws.onmessage = m => { handleMessage(m.data); }
       });
@@ -27,72 +28,13 @@ function handleFileRead(input) {
   const reader = new FileReader();
   reader.readAsText(file_);
   reader.onload = function () {
-    parseSpoilerLog(reader.result, window.spoilerItemsWanted);
+    // parseSpoilerLog(reader.result, window.spoilerItemsWanted);
   };
   reader.onerror = function () {
     console.log(reader.error);
   };
 }
 
-function parseSpoilerLog(spoilerText) {
-  var tParsed = spoilerText
-    .replace(/\r/g, "") // Weird Windows thing.
-    .match(/ALL ITEMS[\s\S]*/)[0] // Only look at ALL ITEMS.
-    .replace(/ALL ITEMS/, "") // Remove ALL ITEMS heading.
-    .replace(/ ?\(\d+\) ?/g, "") // Remove progression numbers.
-    .replace(/ ?\(Key\) ?/g, "") // Remove Sly Key items.
-    .replace(/ \[.+?\]/g, "") // Only for new spoilerlogs.
-    .replace(/<---at--->.*/g, "") // Remove "at" endings.
-    .replace(/SETTINGS[\s\S]*/, "") // Remove settings part at the end. 
-
-  //TODO: Okay, this is REAL GROSS.
-  const smArea2LgArea = Object.keys(smallAreaToLargeArea)
-  for (var idx = 0; idx < smArea2LgArea.length; idx++) {
-    var replace = smArea2LgArea[idx];
-    var re = new RegExp(replace, "g");
-
-    tParsed = tParsed.replace(re, smallAreaToLargeArea[smArea2LgArea[idx]])
-  }
-  // END-REAL-GROSS
-
-  tParsed = tParsed.split("\n\n").filter(s => { return s !== "" })
-
-  // This takes a string like "areaname: item1, item2, item3..." and turns it into
-  // [areaname, [item1, item2, item3]], and does so for all areas in the above parsed text.  The locations are NOT yet unique.
-  window.spoilerMap = tParsed.map(area => {
-    const splitArea = area.split(":")
-    return [splitArea[0], splitArea[1].split("\n").filter(s => { return s !== "" })]
-  })
-
-  window.spoilerMap = window.spoilerMap.reduce((acc, row) => {
-    if (typeof acc[row[0]] === "undefined") {
-      acc[row[0]] = row[1]
-    } else {
-      acc[row[0]] = acc[row[0]].concat(row[1])
-    }
-    return acc
-  }, {})
-
-  _filterAndMapAreaItems() // makes window.areaItems
-}
-
-function _filterAndMapAreaItems() {
-  const itemsToTrack = _makeItemsToTrackArray()
-  var areas = Object.keys(window.spoilerMap)
-
-  // Creates {area: [item1, item2, ...], ...}
-  window.areaItems = {}
-  for (var idx = 0; idx < areas.length; idx++) {
-
-    var area = areas[idx]
-    var items = window.spoilerMap[area]
-    var importantItemList = items.filter(t => { return itemsToTrack.includes(t) })
-
-    if (importantItemList.length > 0) { window.areaItems[area] = importantItemList }
-  }
-
-  plotItemsOnPage()
-}
 
 function _isSpoilerUploaded() {
   return typeof lastname !== "undefined"
@@ -107,6 +49,7 @@ function _makeItemsToTrackArray() {
 }
 
 function handleMessage(m) {
+  console.log(m)
   var j = JSON.parse(m)
   if (relevantEvents.includes(Object.keys(j)[0])) {
     console.log(j)
@@ -413,40 +356,4 @@ const itemToImageNameMapping = {
   "Tram Pass": "Tram_Pass.png",
   "Vengeful Spirit": "Vengeful_Spirit.png",
   "Void Heart": "Void_Heart.png",
-}
-
-const smallAreaToLargeArea = {
-  "Ancestral Mound": "Forgotten Crossroads",
-  "Beast\'s Den": "Deepnest",
-  "Black Egg Temple": "Forgotten Crossroads",
-  "Blue Lake": "Resting Grounds",
-  "Cast Off Shell": "Kingdom\'s Edge",
-  "Colosseum": "Kingdom's Edge",
-  "Crystallized Mound": "Crystal Peak",
-  "Distant Village": "Deepnest",
-  "Failed Tramway": "Deepnest",
-  "Fungal Core": "Fungal Wastes",
-  "Hallownest\'s Crown": "Crystal Peak",
-  "Iselda": "Dirtmouth",
-  "Isma\'s Grove": "Royal Waterways",
-  "Junk Pit": "Royal Waterways",
-  "King\'s Pass": "Dirtmouth",
-  "King\'s Station": "City of Tears",
-  "Lake of Unn": "Greenpath",
-  "Leg Eater": "Fungal Wastes",
-  "Mantis Village": "Fungal Wastes",
-  "Overgrown Mound": "Fog Canyon",
-  "Palace Grounds": "Ancient Basin",
-  "Pleasure House": "City of Tears",
-  "Queen\'s Station": "Fungal Wastes",
-  "Salubra": "Forgotten Crossroads",
-  "Sly (Key)": "Dirtmouth",
-  "Sly": "Dirtmouth",
-  "Soul Sanctum": "City of Tears",
-  "Spirit\'s Glade": "Resting Grounds",
-  "Stag Nest": "Howling Cliffs",
-  "Stone Sanctuary": "Greenpath",
-  "Teacher\'s Archives": "Fog Canyon",
-  "Tower of Love": "City of Tears",
-  "Weaver\'s Den": "Deepnest",
 }
