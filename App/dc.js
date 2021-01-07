@@ -49,7 +49,6 @@ function _makeItemsToTrackArray() {
 }
 
 function handleMessage(m) {
-  console.log(m)
   var j = JSON.parse(m)
   if (relevantEvents.includes(Object.keys(j)[0])) {
     console.log(j)

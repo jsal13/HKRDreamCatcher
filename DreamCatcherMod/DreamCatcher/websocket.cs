@@ -1,12 +1,6 @@
-﻿using System.IO;
-using System.Threading;
-using Newtonsoft.Json;
-using Modding;
-using UnityEngine;
+﻿using System.Threading;
 using WebSocketSharp;
 using WebSocketSharp.Server;
-using System.Collections.Generic;
-using System;
 using System.Collections;
 
 namespace DreamCatcher
@@ -16,15 +10,38 @@ namespace DreamCatcher
 
     private string currentArea = "";
 
-    //  Import Json for Scene:Area map.
-    /*    private static readonly string p_ = Path.Combine(Application.dataPath, "room_mappings.json");
-        public readonly Dictionary<string, string> roomMappings = JsonConvert.DeserializeObject<LocationJson>(File.ReadAllText(p_)).locations;
-        public class LocationJson
-        {
-          [JsonProperty("locations")]
-          public Dictionary<string, string> locations;
-        }*/
-    public readonly Hashtable roomMappings = new Hashtable(){
+    public SocketServer() => IgnoreExtensions = true;
+    public void Broadcast(string s) => Sessions.Broadcast(s);
+
+    protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
+    {
+      /*if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+      else { Send(e.Data); }*/
+      Send(e.Data);
+    }
+    protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
+
+    /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
+    /// https://radiance.host/apidocs/Hooks.html
+
+    public void MessageBool(string item, bool value)
+    {
+      if (State != WebSocketState.Open) { return; }
+      var lowercaseBool = value ? "true" : "false";
+      Send($"{{\"{item}\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
+    }
+    public void MessageInt(string item, int value)
+    {
+      if (State != WebSocketState.Open) { return; }
+      Send($"{{\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"}}");
+    }
+    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
+    {
+      if (State != WebSocketState.Open) { return; }
+          // Reads the user Rando Spoilerlog.
+      Thread.Sleep(200);
+      // TODO: Put this in a file, dang.
+      var roomMappings = new Hashtable(){
       {"Abyss_01", "Royal_Waterways"},
       {"Abyss_02", "Ancient_Basin"},
       {"Abyss_03_b", "Deepnest"},
@@ -396,36 +413,7 @@ namespace DreamCatcher
       {"White_Palace_20", "White_Palace"}
     };
 
-  public SocketServer() => IgnoreExtensions = true;
-    public void Broadcast(string s) => Sessions.Broadcast(s);
-
-    protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
-    {
-      if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
-      else { Send(e.Data); }
-    }
-    protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
-
-    /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
-    /// https://radiance.host/apidocs/Hooks.html
-
-    public void MessageBool(string item, bool value)
-    {
-      if (State != WebSocketState.Open) { return; }
-      var lowercaseBool = value ? "true" : "false";
-      Send($"{{\"{item}\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
-    }
-    public void MessageInt(string item, int value)
-    {
-      if (State != WebSocketState.Open) { return; }
-      Send($"{{\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"}}");
-    }
-    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
-    {
-      if (State != WebSocketState.Open) { return; }
-          // Reads the user Rando Spoilerlog.
-      Thread.Sleep(200);
-      this.currentArea = (string) this.roomMappings[scene.name];
+      this.currentArea = (string) roomMappings[scene.name];
       Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
     }
 
