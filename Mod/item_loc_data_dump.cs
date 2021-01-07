@@ -21,16 +21,24 @@ namespace DreamCatcher
     /// </summary>
     public override void Initialize()
     {
-      Instance = this;
-      Log("Initializing Dreamcatcher HKDataDump...");
-      _wss.AddWebSocketService<SocketServer>("/data", ss => {
-        ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
-        ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
-      });
+      try
+      {
+        Instance = this;
+        Log("Initializing Dreamcatcher HKDataDump...");
+        _wss.AddWebSocketService<SocketServer>("/data", ss =>
+        {
+          ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
+          ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
+          UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
+        });
 
-      _wss.Start();
-      Log("Initialized Dreamcatcher HKDataDump!");
+        _wss.Start();
+        Log("Initialized Dreamcatcher HKDataDump!");
+      }
+      catch (Exception e)
+      {
+        Log(e.Message);
+      }
     }
     public static string GetSpoilerLog()
     {
@@ -103,7 +111,7 @@ namespace DreamCatcher
 
       // Splitting up the spoiler so it looks like: "areaname: item1, item2, item3, ..." 
       var spoilerArray = spoilerText.Split(new[] { "\n\n" }, StringSplitOptions.None).ToList();
-      spoilerArray = spoilerArray.Where(x => !String.IsNullOrWhiteSpace(x)).ToList(); // take out blank lines.
+      spoilerArray = spoilerArray.Where(x => !String.IsNullOrEmpty(x)).ToList(); // take out blank lines.
 
       Dictionary<string, List<string>> areaItemDict = new Dictionary<string, List<string>>();
       for (var idx = 0; idx < spoilerArray.Count(); idx++)
@@ -133,7 +141,7 @@ namespace DreamCatcher
 
 
     public static string GetAndParseSpoilerLog()
-      // TODO: Should I make the two methods above one?
+    // TODO: Should I make the two methods above one?
     {
       var spoilerText = GetSpoilerLog();
       return ParseSpoilerLog(spoilerText);

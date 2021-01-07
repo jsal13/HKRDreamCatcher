@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using WebSocketSharp;
 using WebSocketSharp.Server;
-using System.Collections;
+using System.Collections.Generic;
 
 namespace DreamCatcher
 {
@@ -38,10 +38,10 @@ namespace DreamCatcher
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
     {
       if (State != WebSocketState.Open) { return; }
-          // Reads the user Rando Spoilerlog.
+      // Reads the user Rando Spoilerlog.
       Thread.Sleep(200);
       // TODO: Put this in a file, dang.
-      var roomMappings = new Hashtable(){
+      var roomMappings = new Dictionary<string, string>(){
       {"Abyss_01", "Royal_Waterways"},
       {"Abyss_02", "Ancient_Basin"},
       {"Abyss_03_b", "Deepnest"},
@@ -413,10 +413,9 @@ namespace DreamCatcher
       {"White_Palace_20", "White_Palace"}
     };
 
-      this.currentArea = (string) roomMappings[scene.name];
+      this.currentArea = (string)roomMappings[scene.name];
       Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
     }
 
   }
 }
-
