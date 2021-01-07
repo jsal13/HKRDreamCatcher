@@ -140,6 +140,7 @@ namespace DreamCatcher
     }
 
 
+
     public static string GetAndParseSpoilerLog()
     // TODO: Should I make the two methods above one?
     {

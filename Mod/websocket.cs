@@ -15,9 +15,8 @@ namespace DreamCatcher
 
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
-      /*if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
-      else { Send(e.Data); }*/
-      Send(e.Data);
+      if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+      else { Send(e.Data); }
     }
     protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
 

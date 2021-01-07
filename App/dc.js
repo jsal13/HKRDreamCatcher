@@ -15,6 +15,7 @@ function wsFactory() {
         ws.onopen = e => {
           console.log(`WS connection Status: ${e.target.readyState}`);
           v(ws);
+          console.log("Getting spoiler...")
           ws.send("/getspoiler")
         };
         ws.onmessage = m => { handleMessage(m.data); }
@@ -22,23 +23,6 @@ function wsFactory() {
     }
   }
 };
-
-function handleFileRead(input) {
-  const file_ = input.files[0];
-  const reader = new FileReader();
-  reader.readAsText(file_);
-  reader.onload = function () {
-    // parseSpoilerLog(reader.result, window.spoilerItemsWanted);
-  };
-  reader.onerror = function () {
-    console.log(reader.error);
-  };
-}
-
-
-function _isSpoilerUploaded() {
-  return typeof lastname !== "undefined"
-}
 
 function _makeItemsToTrackArray() {
   var itemsToTrack = []
@@ -52,9 +36,12 @@ function handleMessage(m) {
   var j = JSON.parse(m)
   if (relevantEvents.includes(Object.keys(j)[0])) {
     console.log(j)
+  } else if (Object.keys(j)[0] === "spoiler") {
+    console.log("Plotting spoiler...")
+    window.areaItems = j["spoiler"]
+    plotItemsOnPage()
   }
 }
-
 
 // HTML-Side JS
 function plotItemsOnPage() {
@@ -89,11 +76,7 @@ function plotItemsOnPage() {
     </div>`
     html_ += `</div>` // Closes <div class="area-pill">
   }
-
   $("#tracker-table").append(html_)
-  $('.tracker-image').on('click', function () {
-    $(this).toggleClass("dimmed");
-  })
 }
 
 
@@ -105,15 +88,15 @@ function dimImage(item, loc) {
 function initialize() {
 
   // Create the Checkbox functionality for picking spoiler item types.
-  $('input').on('click', function () {
-    window.spoilerItemsWanted = [];
-    $('.spoiler-items-wanted input:checked').each(function () {
-      window.spoilerItemsWanted.push($(this).val());
+  // $('input').on('click', function () {
+  //   window.spoilerItemsWanted = [];
+  //   $('.spoiler-items-wanted input:checked').each(function () {
+  //     window.spoilerItemsWanted.push($(this).val());
 
-      // Re-calculate what we need on the list.
-    });
-    if (typeof window.spoilerMap !== 'undefined') { _filterAndMapAreaItems(window.spoilerMap) }
-  });
+  //     // Re-calculate what we need on the list.
+  //   });
+  //   if (typeof window.spoilerMap !== 'undefined') { _filterAndMapAreaItems(window.spoilerMap) }
+  // });
 
   // Main method for the JS to initialize the WS.
   const wsObj = wsFactory()
@@ -125,137 +108,30 @@ $(window).on('load', function () { initialize(); })
 
 // Constants
 const locData = {
-  'Abyss': {
-    background: "#707170",
-    border: "#242524",
-    abbr: "Abyss",
-    displayName: 'Abyss',
-  },
-  'Ancient Basin': {
-    background: "#73747d",
-    border: "#282a37",
-    abbr: "AnBsn",
-    displayName: 'Ancient Basin',
-  },
-  'City of Tears': {
-    background: "#6b89a9",
-    border: "#1b4a7b",
-    abbr: "CityT",
-    displayName: 'City of Tears',
-  },
-  'Crystal Peak': {
-    background: "#b588b0",
-    border: "#95568f",
-    abbr: "CryPk",
-    displayName: 'Crystal Peak',
-  },
-  'Deepnest': {
-    background: "#666b80",
-    border: "#141c3c",
-    abbr: "DNest",
-    displayName: 'Deepnest',
-  },
-  'Dirtmouth': {
-    background: "#787994",
-    border: "#2f315b",
-    abbr: "Dirtm",
-    displayName: 'Dirtmouth',
-  },
-  'Fog Canyon': {
-    background: "#9da3bd",
-    border: "#5b6591",
-    abbr: "FogCn",
-    displayName: 'Fog Canyon',
-  },
+  'Abyss': { background: "#707170", border: "#242524", abbr: "Abyss", },
+  'Ancient Basin': { background: "#73747d", border: "#282a37", abbr: "AnBsn", },
+  'City of Tears': { background: "#6b89a9", border: "#1b4a7b", abbr: "CityT", },
+  'Crystal Peak': { background: "#b588b0", border: "#95568f", abbr: "CryPk", },
+  'Deepnest': { background: "#666b80", border: "#141c3c", abbr: "DNest", },
+  'Dirtmouth': { background: "#787994", border: "#2f315b", abbr: "Dirtm", },
+  'Fog Canyon': { background: "#9da3bd", border: "#5b6591", abbr: "FogCn", },
   'Forgotten Crossroads': {
-    background: "#687796",
-    border: "#202d5d",
-    abbr: "FxRds",
-    displayName: 'Forgotten Crossroads',
+    background: "#687796", border: "#202d5d", abbr: "XRoad",
   },
-  'Fungal Wastes': {
-    background: "#58747c",
-    border: "#113945",
-    abbr: "FungW",
-    displayName: 'Fungal Wastes',
-  },
-  'Greenpath': {
-    background: "#679487",
-    border: "#155b47",
-    abbr: "GPath",
-    displayName: 'Greenpath',
-  },
-  'Hive': {
-    background: "#C17F6E",
-    border: "#A64830",
-    abbr: "Hive",
-    displayName: 'Hive',
-  },
-  'Howling Cliffs': {
-    background: "#75809a",
-    border: "#3b4a6f",
-    abbr: "HClif",
-    displayName: 'Howling Cliffs',
-  },
-  'Kingdom\'s Edge': {
-    background: "#768384",
-    border: "#3c4e50",
-    abbr: "KEdge",
-    displayName: 'Kingdom\'s Edge',
-  },
-  'Queen\'s Gardens': {
-    background: "#559f9d",
-    border: "#0d7673",
-    abbr: "QGdn",
-    displayName: 'Queen\'s Garden',
-  },
-  'Resting Grounds': {
-    background: "#84799d",
-    border: "#423169",
-    abbr: "RestG",
-    displayName: 'Resting Grounds',
-  },
-  'Royal Waterways': {
-    background: "#6d919d",
-    border: "#1e5669",
-    abbr: "RWatr",
-    displayName: 'Royal Waterways',
-  },
+  'Fungal Wastes': { background: "#58747c", border: "#113945", abbr: "FungW", },
+  'Greenpath': { background: "#679487", border: "#155b47", abbr: "GPath", },
+  'Hive': { background: "#C17F6E", border: "#A64830", abbr: "Hive", },
+  'Howling Cliffs': { background: "#75809a", border: "#3b4a6f", abbr: "HClif", },
+  'Kingdom\'s Edge': { background: "#768384", border: "#3c4e50", abbr: "KEdge", },
+  'Queen\'s Gardens': { background: "#559f9d", border: "#0d7673", abbr: "QGdn", },
+  'Resting Grounds': { background: "#84799d", border: "#423169", abbr: "RestG", },
+  'Royal Waterways': { background: "#6d919d", border: "#1e5669", abbr: "RWatr", },
 }
 
 //TODO: some number of events need revamp: hasDesolateDive?, 
 // Remember to also have "scene" for the scene processing.
 const relevantEvents = [
-  'scene',
-  'simpleKeys',
-  'ore',
-  'hasDash',
-  'hasWallJump',
-  'hasSuperDash',
-  'hasShadowDash',
-  'hasAcidArmour',
-  'hasDoubleJump',
-  'hasLantern',
-  'hasTramPass',
-  'hasCityKey',
-  'hasSlykey',
-  'hasWhiteKey',
-  'hasMenderKey',
-  'hasWaterwaysKey',
-  'hasSpaKey',
-  'hasLoveKey',
-  'hasKingsBrand',
-  'fireballLevel',
-  'quakeLevel',
-  'screamLevel',
-  'hasCyclone',
-  'hasDashSlash',
-  'hasUpwardSlash',
-  'hasDreamNail',
-  'hasDreamGate',
-  'dreamNailUpgraded',
-  'royalCharmState',
-  'gotShadeCharm',
+  'scene', 'simpleKeys', 'ore', 'hasDash', 'hasWallJump', 'hasSuperDash', 'hasShadowDash', 'hasAcidArmour', 'hasDoubleJump', 'hasLantern', 'hasTramPass', 'hasCityKey', 'hasSlykey', 'hasWhiteKey', 'hasMenderKey', 'hasWaterwaysKey', 'hasSpaKey', 'hasLoveKey', 'hasKingsBrand', 'fireballLevel', 'quakeLevel', 'screamLevel', 'hasCyclone', 'hasDashSlash', 'hasUpwardSlash', 'hasDreamNail', 'hasDreamGate', 'dreamNailUpgraded', 'royalCharmState', 'gotShadeCharm',
 ]
 
 const dreamers = [
@@ -283,33 +159,7 @@ const majorItems = [
 ]
 
 
-const minorItems = [
-  "City Crest",
-  "Collector's Map",
-  "Cyclone Slash",
-  "Dash Slash",
-  "Elegant Key",
-  "Great Slash",
-  "Grimmchild",
-  "King Fragment",
-  "King's Brand",
-  "Love Key",
-  "Lumafly Lantern",
-  "Pale Ore-Basin",
-  "Pale Ore-Colosseum",
-  "Pale Ore-Crystal Peak",
-  "Pale Ore-Grubs",
-  "Pale Ore-Nosk",
-  "Pale Ore-Seer",
-  "Queen Fragment",
-  "Shopkeeper's Key",
-  "Simple Key-Basin",
-  "Simple Key-City",
-  "Simple Key-Lurker",
-  "Simple Key-Sly",
-  "Tram Pass",
-  "Void Heart",
-]
+const minorItems = ["City Crest", "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment", "King's Brand", "Love Key", "Lumafly Lantern", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak", "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin", "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart",]
 
 const itemToImageNameMapping = {
   "Abyss Shriek": "Abyss_Shriek.png",
