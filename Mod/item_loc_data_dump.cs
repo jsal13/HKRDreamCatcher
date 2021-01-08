@@ -57,6 +57,7 @@ namespace DreamCatcher
         "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin",
         "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart"
       };
+
       Dictionary<string, string> smallAreaToGeneralArea = new Dictionary<string, string>(){
         {"Ancestral Mound", "Forgotten Crossroads"},
         {"Beast\'s Den", "Deepnest"},
@@ -134,7 +135,9 @@ namespace DreamCatcher
         }
       }
 
-      Dictionary<string, List<string>> areaItemDictCleaned = areaItemDict.Where(x => x.Value.Count > 0).ToDictionary(x => x.Key, x => x.Value);
+      SortedDictionary<string, List<string>> areaItemDictCleaned = new SortedDictionary<string, List<string>>(
+        areaItemDict.Where(x => x.Value.Count > 0).ToDictionary(x => x.Key, x => x.Value)
+      );
       var areaItemJson = JsonConvert.SerializeObject(areaItemDictCleaned);
       return areaItemJson;
     }

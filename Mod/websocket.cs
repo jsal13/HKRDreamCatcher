@@ -27,12 +27,12 @@ namespace DreamCatcher
     {
       if (State != WebSocketState.Open) { return; }
       var lowercaseBool = value ? "true" : "false";
-      Send($"{{\"{item}\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
+      Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageInt(string item, int value)
     {
       if (State != WebSocketState.Open) { return; }
-      Send($"{{\"{item}\": {value}, \"current_area\": \"{this.currentArea}\"}}");
+      Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
     {

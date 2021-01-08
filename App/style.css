@@ -68,7 +68,7 @@ body {
   margin-right: 2px
 }
 
-.dimmed {
+.item-found {
   /* Used to turn opactiy down on an image. */
   opacity: 0.3;
 }
