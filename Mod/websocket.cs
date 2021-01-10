@@ -2,17 +2,22 @@
 using WebSocketSharp;
 using WebSocketSharp.Server;
 using System.Collections.Generic;
+using System;
+using Modding;
 
 namespace DreamCatcher
 {
   internal class SocketServer : WebSocketBehavior
   {
-
     private string currentArea = "";
-
-    public SocketServer() => IgnoreExtensions = true;
+    public SocketServer() => IgnoreExtensions = true;  // TODO: ?????
+    
     public void Broadcast(string s) => Sessions.Broadcast(s);
 
+    /// <summary>
+    /// If the user sends a /getspoiler request, we return the parsed spoiler Json.
+    /// </summary>
+    /// <param name="e"></param>
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
       if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
@@ -22,7 +27,6 @@ namespace DreamCatcher
 
     /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
     /// https://radiance.host/apidocs/Hooks.html
-
     public void MessageBool(string item, bool value)
     {
       if (State != WebSocketState.Open) { return; }
@@ -41,6 +45,7 @@ namespace DreamCatcher
       Thread.Sleep(200);
       // TODO: Put this in a file, dang.
       var roomMappings = new Dictionary<string, string>(){
+      {"", ""},
       {"Abyss_01", "Royal_Waterways"},
       {"Abyss_02", "Ancient_Basin"},
       {"Abyss_03_b", "Deepnest"},
@@ -412,8 +417,15 @@ namespace DreamCatcher
       {"White_Palace_20", "White_Palace"}
     };
 
-      this.currentArea = (string)roomMappings[scene.name];
-      Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
+      try
+      {
+        this.currentArea = (string)roomMappings[scene.name];
+        Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
+      } catch (Exception e)
+      {
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"")
+      }
+
     }
 
   }

@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Modding;
 using UnityEngine;
 using WebSocketSharp.Server;
+using RandomizerMod; // ??? am i not using this?
 
 
 namespace DreamCatcher
@@ -21,10 +22,8 @@ namespace DreamCatcher
     /// </summary>
     public override void Initialize()
     {
-      try
-      {
         Instance = this;
-        Log("Initializing Dreamcatcher HKDataDump...");
+        Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
         _wss.AddWebSocketService<SocketServer>("/data", ss =>
         {
           ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
@@ -33,23 +32,24 @@ namespace DreamCatcher
         });
 
         _wss.Start();
-        Log("Initialized Dreamcatcher HKDataDump!");
-      }
-      catch (Exception e)
-      {
-        Log(e.Message);
-      }
+        Log("[OK] Initialized Dreamcatcher HKItemLocDataDump Socket.");
     }
+
     public static string GetSpoilerLog()
     {
       string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
       return System.IO.File.ReadAllText(userDataPath);
     }
 
-    public static string ParseSpoilerLog(string spoilerText)
+    /// <summary>
+    /// Regex Replacements for the Spoiler to make it nice.
+    /// </summary>
+    /// <param name="rawSpoilerText">The raw text for the spoiler log.</param>
+    /// <returns></returns>
+    public static string ParseSpoilerLog(string rawSpoilerText)
     {
       List<string> relevantItems = new List<string>() {
-        "Herrah", "Lurien", "Monomon", "Abyss Shriek", "Awoken Dream Nail", "Crystal Heart", "Descending Dark",
+        "Herrah", "Lurien", "Monomon", "Dreamer", "Abyss Shriek", "Awoken Dream Nail", "Crystal Heart", "Descending Dark",
         "Desolate Dive", "Dream Gate", "Dream Nail", "Howling Wraiths", "Isma's Tear", "Mantis Claw",
         "Monarch Wings", "Mothwing Cloak", "Shade Cloak", "Shade Soul", "Vengeful Spirit", "City Crest",
         "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment",
@@ -59,7 +59,7 @@ namespace DreamCatcher
       };
 
       Dictionary<string, string> smallAreaToGeneralArea = new Dictionary<string, string>(){
-        {"Ancestral Mound", "Forgotten Crossroads"},
+        {"Ancestral Mound", "Forgotten Crossroads"}, 
         {"Beast\'s Den", "Deepnest"},
         {"Black Egg Temple", "Forgotten Crossroads"},
         {"Blue Lake", "Resting Grounds"},
@@ -94,9 +94,8 @@ namespace DreamCatcher
         {"Weaver\'s Den", "Deepnest"}
       };
 
-      // FORMATTING SPOILER LOG INTO USEFUL FORMAT.
-      // Regex Replacements for the Spoiler to make it nice.
-      spoilerText = Regex.Replace(spoilerText, @"\r", "", RegexOptions.Multiline); // Weird windows thing.
+      // SPOILER PARSING.
+      var spoilerText = Regex.Replace(rawSpoilerText, @"\r", "", RegexOptions.Multiline); // Weird windows thing.
       spoilerText = Regex.Match(spoilerText, @"ALL ITEMS[\s\S]*", RegexOptions.Multiline).Value;  // Only take the ALL ITEMS part and beyond.
       spoilerText = Regex.Replace(spoilerText, @"ALL ITEMS", "", RegexOptions.Multiline); // Remove ALL ITEMS text.
       spoilerText = Regex.Replace(spoilerText, @" ?\(\d+\) ?", "", RegexOptions.Multiline); // Remove progression values.
@@ -105,36 +104,44 @@ namespace DreamCatcher
       spoilerText = Regex.Replace(spoilerText, @"<---at--->.*", "", RegexOptions.Multiline); // Remove "At" and everything after the at.  We know the loc already.
       spoilerText = Regex.Replace(spoilerText, @"SETTINGS[\s\S]*", "", RegexOptions.Multiline); // Remove Settings.
 
-      foreach (KeyValuePair<string, string> kvp in smallAreaToGeneralArea)
-      {
-        spoilerText = Regex.Replace(spoilerText, kvp.Key, kvp.Value, RegexOptions.Multiline);
-      }
+      // Replace the specific area with general areas above.
+      foreach (KeyValuePair<string, string> kvp in smallAreaToGeneralArea) spoilerText = Regex.Replace(spoilerText, kvp.Key, kvp.Value, RegexOptions.Multiline);
+
 
       // Splitting up the spoiler so it looks like: "areaname: item1, item2, item3, ..." 
-      var spoilerArray = spoilerText.Split(new[] { "\n\n" }, StringSplitOptions.None).ToList();
-      spoilerArray = spoilerArray.Where(x => !String.IsNullOrEmpty(x)).ToList(); // take out blank lines.
 
+      // take out blank lines.
+      var spoilerArray = spoilerText
+        .Split(new[] { "\n\n" }, StringSplitOptions.None)
+        .Where(x => !String.IsNullOrEmpty(x))
+        .ToList();
+
+      // Creates the area-to-items dictionary.
+      var acc = 0;  
       Dictionary<string, List<string>> areaItemDict = new Dictionary<string, List<string>>();
-      for (var idx = 0; idx < spoilerArray.Count(); idx++)
+      foreach (string row in spoilerArray)
       {
-        var splitstr = spoilerArray[idx].Split('\n').ToList();
+        var splitstr = row.Split('\n'); // toList was here before.
         var area_ = splitstr[0].TrimEnd(':');
 
+        // If the area is already in there, don't add it again.
         if (areaItemDict.ContainsKey(area_)) { continue; }
         else areaItemDict[area_] = new List<string>();
 
-        // Make a list and append to it.
-        for (var jdx = idx; jdx < spoilerArray.Count(); jdx++)
+        // Go through every string (after the current area) and put in the items that correspond to a row for that area.
+        // Note the area rows are NOT unique (there's more than one row with the same area) as we regex'd
+        // from specific area to general area above.
+        for (var jdx = acc; jdx < spoilerArray.Count(); jdx++)
         {
-          // Check the other areas after the current to see if there are any more when we convert "small" areas to general areas.
-          var splitstr2 = spoilerArray[jdx].Split('\n').ToList();
+          var splitstr2 = spoilerArray[jdx].Split('\n'); //.ToList();
           if (splitstr2[0].TrimEnd(':') != area_) continue;
 
-          var items_ = splitstr2.Skip(1).ToList();
-          foreach (string item in items_) if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
+          // It looks like [area, item1, item2, ...] so we skip 1 to exclude area:
+          foreach (string item in splitstr2.Skip(1)) if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
         }
       }
 
+      // Sort the areas alphabetically.
       SortedDictionary<string, List<string>> areaItemDictCleaned = new SortedDictionary<string, List<string>>(
         areaItemDict.Where(x => x.Value.Count > 0).ToDictionary(x => x.Key, x => x.Value)
       );

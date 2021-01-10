@@ -6,52 +6,60 @@
 // 5. Keep checking names with mini runs.
 // 6. Condense datatypes.  We almost certainly don't need all these things.
 
-function wsFactory() {
-  return {
-    tryCount: 3,
-    connect: function (url) {
-      var ctx = this,
-        ws = new WebSocket(url);
 
-      return new Promise(function (v, x) {
-        ws.onerror = e => {
-          console.log(`WS connection attempt ${4 - ctx.tryCount} -> Unsuccessful`);
-          e.target.readyState === 3 && --ctx.tryCount;
-          if (ctx.tryCount > 0) setTimeout(() => v(ctx.connect(url)), 1000);
-          else x(new Error("3 unsuccessfull connection attempts"));
-        };
-        ws.onopen = e => {
-          console.log(`WS connection Status: ${e.target.readyState}`);
-          v(ws);
-          console.log("Getting spoiler...")
-          ws.send("/getspoiler")
-        };
-        ws.onmessage = m => { handleMessage(m.data); }
-      });
+// Double abilities do not work; kill them off.
+
+function wsFactory() {
+  var ws = new WebSocket("ws://localhost:10051/data")
+  var p = new Promise(function (resolve, reject) {
+    ws.onopen = e => {
+      console.log(`WS connection Status: ${e.target.readyState}`);
+      resolve(ws);
+
+      console.log("Getting spoiler...")
+      ws.send("/getspoiler")
     }
-  }
-};
+    ws.onmessage = m => { console.log(m); handleMessage(m.data); }
+  })
+
+  return ws
+}
+
 
 function handleMessage(m) {
   var j = JSON.parse(m)
-  console.log("OKAY OKAY: ", j)
-
-  if (relevantEvents.includes(j["item"])) {
-    handleItemGetEvent(j["item"], j["value"], j["current_area"])
-  } else if (Object.keys(j)[0] === "spoiler") {
-    window.areaItems = j["spoiler"]
-    plotItemsOnPage()
+  // TODO: Something janky here.  Maybe we should encode and checksum the spoiler.
+  if (Object.keys(j)[0] === "spoiler") {
+    // If the WS responds with a spoiler log...
+    if (typeof window.areaItems !== 'undefined') {
+      // If the old spoiler already exists.
+      if (window.areaItems !== j["spoiler"]) {
+        // If the new spoiler doesn't match the old spoiler.
+        window.areaItems = j["spoiler"]
+        plotItemsOnPage()
+      }
+    }
+    else {
+      // If this is the first time we're getting the spoiler.
+      window.areaItems = j["spoiler"]
+      plotItemsOnPage()
+    }
   }
-}
-
-function parseItemName(item) {
-  // Remove apostrophes and spaces->underscores.
-  return item.replace(/ /g, '_').replace(/'/g, '')
+  else if (Object.keys(j)[0] === "scene") { }
+  else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
+    // If we get a general item...
+    handleItemGetEvent(j["item"], j["value"], j["current_area"])
+  }
+  else if (j["item"].includes("RandomizerMod.Dreamer")) {
+    // If we get a dreamer...
+    var dreamerName = j["item"].split(".")[2]
+    handleItemGetEvent(dreamerName, j["value"], j["current_area"])
+  }
 }
 
 function handleItemGetEvent(itemEvent, value, current_area) {
   console.log(itemEvent, value, current_area)
-  var item_ = parseItemName(eventToItem[itemEvent])
+  var item_ = eventToItemData[itemEvent]
   const annoyingItems = ["Ore", "Simple_Key"]
 
   if (annoyingItems.includes(item_)) {
@@ -66,7 +74,6 @@ function plotItemsOnPage() {
   var html_ = ""
   const areas = Object.keys(window.areaItems)
   for (var idx = 0; idx < areas.length; idx++) {
-    html_ += '<div class="area-pill">'
     var divStyle = `background: ${locData[areas[idx]]['background']}; 
         border: 6px solid ${locData[areas[idx]]['border']};`
     var circleStyle = `background: ${locData[areas[idx]]['border']}; 
@@ -76,24 +83,29 @@ function plotItemsOnPage() {
     var trackerImages_ = ""
     for (var jdx = 0; jdx < areaItems[areas[idx]].length; jdx++) {
       var itemCleanName_ = itemNameAlphaUnderscore[areaItems[areas[idx]][jdx]];
-      trackerImages_ += `
+      if (itemsToTrack.includes(itemCleanName_)) {
+        trackerImages_ += `
         <div class="tracker-image">
           <img class="item-image ${itemCleanName_}_${locData[areas[idx]]["display"]}" src="./images/${itemCleanName_}.png"/>
         </div>`
+      }
     }
 
-    html_ += `
-    <div class="area-pill-inner" style="${divStyle}">
-      <div class="area-pill-rounded-edge" style="${circleStyle}">
-        <div class="area-pill-area-title-div">
-          <span class="area-pill-area-title-text">${locData[areas[idx]]["abbr"]}</span>
+    if (trackerImages_ !== "") {
+      html_ += `
+    <div class="area-pill">
+      <div class="area-pill-inner" style="${divStyle}">
+        <div class="area-pill-rounded-edge" style="${circleStyle}">
+          <div class="area-pill-area-title-div">
+            <span class="area-pill-area-title-text">${locData[areas[idx]]["abbr"]}</span>
+          </div>
+        </div>
+        <div class="pill-items-container">
+          ${trackerImages_}
         </div>
       </div>
-      <div class="pill-items-container">
-        ${trackerImages_}
-      </div>
     </div>`
-    html_ += `</div>` // Closes <div class="area-pill">
+    }
   }
   $("#tracker-table").append(html_)
 }
@@ -107,8 +119,11 @@ function dimItemFound(item, locWithUnderscores) {
 
 function initialize() {
   // Main method for the JS to initialize the WS.
-  const wsObj = wsFactory()
-  wsObj.connect("ws://localhost:10051/data")
+  window.ws = wsFactory()
+
+  var _itemsToTrackArray = majorItems.concat(dreamers)
+  window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
+  // setInterval(() => { window.ws.send("/getspoiler") }, 10000)
 }
 
 $(window).on('load', function () { initialize(); })
@@ -140,8 +155,12 @@ const locData = {
 // Collector's map?
 const eventToItemData = {
   'scene': '',
+  'Herrah': 'Herrah',
+  'Monomon': 'Monomon',
+  'Lurien': 'Lurien',
   'simpleKeys': "Simple_Key",
   'ore': "Ore",
+  'hasLantern': "Lumafly Lantern",
   'hasDash': "Mothwing_Cloak",
   'hasWalljump': "Mantis_Claw",
   'hasSuperDash': "Crystal_Heart",
@@ -162,11 +181,12 @@ const eventToItemData = {
   'hasVengefulSpirit': "Vengeful_Spirit",
   'hasShadeSoul': "Vengeful_Spirit",
   'hasCyclone': "Cyclone_Slash",
-  'hasDashSlash': "Dash_Slash", // wait what?
+  'hasDashSlash': "Great_Slash", // wait what?
   'hasUpwardSlash': "Dash_Slash", // why is this dash slash?
   'hasDreamNail': "Dream_Nail",
   'hasDreamGate': "Dream_Nail",
   'dreamNailUpgraded': "Dream_Nail",
+  'hadPinGrub': "Grub",
   'gotCharm36': "" // what is this?  white piece?
 }
 
@@ -182,7 +202,7 @@ const itemNameAlphaUnderscore = {
   "Dash Slash": "Dash_Slash",
   "Descending Dark": "Desolate_Dive",
   "Desolate Dive": "Desolate_Dive",
-  "Dream Gate": "Dream_Gate",
+  "Dream Gate": "Dream_Nail",
   "Dream Nail": "Dream_Nail",
   "Elegant Key": "Elegant_Key",
   "Great Slash": "Great_Slash",
@@ -224,7 +244,7 @@ const itemNameAlphaUnderscore = {
 //   if (window.spoilerItemsWanted.includes("dreamers")) { itemsToTrack = itemsToTrack.concat(dreamers) }
 //   if (window.spoilerItemsWanted.includes("majorItems")) { itemsToTrack = itemsToTrack.concat(majorItems) }
 //   if (window.spoilerItemsWanted.includes("minorItems")) { itemsToTrack = itemsToTrack.concat(minorItems) }
-//   return itemsToTrack;
+//   return itemsToTrack.map(s => itemNameAlphaUnderscore(s));
 // }
 
 const dreamers = [
@@ -234,6 +254,7 @@ const dreamers = [
 ]
 
 const majorItems = [
+  "Collector's Map",
   "Abyss Shriek",
   "Awoken Dream Nail",
   "Crystal Heart",
@@ -243,6 +264,7 @@ const majorItems = [
   "Dream Nail",
   "Howling Wraiths",
   "Isma's Tear",
+  "Lumafly Lantern",
   "Mantis Claw",
   "Monarch Wings",
   "Mothwing Cloak",
@@ -251,6 +273,4 @@ const majorItems = [
   "Vengeful Spirit",
 ]
 
-const minorItems = ["City Crest", "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment", "King's Brand", "Love Key", "Lumafly Lantern", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak", "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin", "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart",]
-
-
+const minorItems = ["City Crest", "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment", "King's Brand", "Love Key", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak", "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin", "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart",]
