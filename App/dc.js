@@ -27,33 +27,37 @@ function wsFactory() {
 
 
 function handleMessage(m) {
-  var j = JSON.parse(m)
-  // TODO: Something janky here.  Maybe we should encode and checksum the spoiler.
-  if (Object.keys(j)[0] === "spoiler") {
-    // If the WS responds with a spoiler log...
-    if (typeof window.areaItems !== 'undefined') {
-      // If the old spoiler already exists.
-      if (window.areaItems !== j["spoiler"]) {
-        // If the new spoiler doesn't match the old spoiler.
+  try {
+    var j = JSON.parse(m)
+    // TODO: Something janky here.  Maybe we should encode and checksum the spoiler.
+    if (Object.keys(j)[0] === "spoiler") {
+      // If the WS responds with a spoiler log...
+      if (typeof window.areaItems !== 'undefined') {
+        // If the old spoiler already exists.
+        if (window.areaItems !== j["spoiler"]) {
+          // If the new spoiler doesn't match the old spoiler.
+          window.areaItems = j["spoiler"]
+          plotItemsOnPage()
+        }
+      }
+      else {
+        // If this is the first time we're getting the spoiler.
         window.areaItems = j["spoiler"]
         plotItemsOnPage()
       }
     }
-    else {
-      // If this is the first time we're getting the spoiler.
-      window.areaItems = j["spoiler"]
-      plotItemsOnPage()
+    else if (Object.keys(j)[0] === "scene") { }
+    else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
+      // If we get a general item...
+      handleItemGetEvent(j["item"], j["value"], j["current_area"])
     }
-  }
-  else if (Object.keys(j)[0] === "scene") { }
-  else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
-    // If we get a general item...
-    handleItemGetEvent(j["item"], j["value"], j["current_area"])
-  }
-  else if (j["item"].includes("RandomizerMod.Dreamer")) {
-    // If we get a dreamer...
-    var dreamerName = j["item"].split(".")[2]
-    handleItemGetEvent(dreamerName, j["value"], j["current_area"])
+    else if (j["item"].includes("RandomizerMod.Dreamer")) {
+      // If we get a dreamer...
+      var dreamerName = j["item"].split(".")[2]
+      handleItemGetEvent(dreamerName, j["value"], j["current_area"])
+    }
+  } catch {
+    console.log("didn't parse: ", m)
   }
 }
 

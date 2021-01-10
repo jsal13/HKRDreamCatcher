@@ -29,12 +29,14 @@ namespace DreamCatcher
     /// https://radiance.host/apidocs/Hooks.html
     public void MessageBool(string item, bool value)
     {
+      Send(item); //debug
       if (State != WebSocketState.Open) { return; }
       var lowercaseBool = value ? "true" : "false";
       Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageInt(string item, int value)
     {
+      Send(item); //debug
       if (State != WebSocketState.Open) { return; }
       Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{this.currentArea}\"}}");
     }
@@ -46,6 +48,7 @@ namespace DreamCatcher
       // TODO: Put this in a file, dang.
       var roomMappings = new Dictionary<string, string>(){
       {"", ""},
+      {"Menu_Title", ""},
       {"Abyss_01", "Royal_Waterways"},
       {"Abyss_02", "Ancient_Basin"},
       {"Abyss_03_b", "Deepnest"},
@@ -423,7 +426,7 @@ namespace DreamCatcher
         Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
       } catch (Exception e)
       {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"")
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"");
       }
 
     }
