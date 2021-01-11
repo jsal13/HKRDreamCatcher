@@ -1,15 +1,19 @@
-﻿using System.Threading;
+﻿using Modding;
+using System.Threading;
 using WebSocketSharp;
 using WebSocketSharp.Server;
 using System.Collections.Generic;
 using System;
-using Modding;
+
 
 namespace DreamCatcher
 {
   internal class SocketServer : WebSocketBehavior
   {
     private string currentArea = "";
+    private bool messagedHerrah = false;
+    private bool messagedMonomon = false;
+    private bool messagedLurien = false;
     public SocketServer() => IgnoreExtensions = true;  // TODO: ?????
     
     public void Broadcast(string s) => Sessions.Broadcast(s);
@@ -21,6 +25,12 @@ namespace DreamCatcher
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
       if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+      else if (e.Data == "/dreamers")
+      {
+        if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
+        if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
+        if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
+      }
       else { Send(e.Data); }
     }
     protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
@@ -29,14 +39,17 @@ namespace DreamCatcher
     /// https://radiance.host/apidocs/Hooks.html
     public void MessageBool(string item, bool value)
     {
-      Send(item); //debug
       if (State != WebSocketState.Open) { return; }
+
       var lowercaseBool = value ? "true" : "false";
       Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
     }
     public void MessageInt(string item, int value)
     {
-      Send(item); //debug
+      if (item == "RandomizerMod.Monomon" || item == "monomonDefeated") item = "maskBrokenMonomon";
+      else if (item == "RandomizerMod.Lurien" || item == "lurienDefeated") item = "maskBrokenLurien";
+      else if (item == "RandomizerMod.Herrah" || item == "hegemolDefeated") item = "maskBrokenHegemol";
+
       if (State != WebSocketState.Open) { return; }
       Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{this.currentArea}\"}}");
     }

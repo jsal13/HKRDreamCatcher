@@ -18,6 +18,7 @@ function wsFactory() {
 
       console.log("Getting spoiler...")
       ws.send("/getspoiler")
+      window.setInterval(() => ws.send("/dreamers"), 10000)
     }
     ws.onmessage = m => { console.log(m); handleMessage(m.data); }
   })
@@ -47,6 +48,9 @@ function handleMessage(m) {
       }
     }
     else if (Object.keys(j)[0] === "scene") { }
+    else if (Object.keys(j)[0] === "dreamer") {
+      handleItemGetEvent(j["dreamer", j["got_mask"], j["current_area"]])
+    }
     else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
       // If we get a general item...
       handleItemGetEvent(j["item"], j["value"], j["current_area"])
@@ -117,8 +121,14 @@ function plotItemsOnPage() {
 
 function dimItemFound(item, locWithUnderscores) {
   // Item alpha undercored, locWithUnderscores.
-  console.log(`Dimming ${item} at ${locWithUnderscores}.`)
-  $(`img[class~="${item}_${locWithUnderscores}"]:not(.item-found)`).first().addClass("item-found")
+  if (["Monomon", "Lurien", "Herrah"].includes(item)) {
+    // Due to the 10 second lag and the uniqueness of the dreamers, we should just look for their name.
+    console.log(`Dimming ${item}.`)
+    $(`img[class*="${item}"]:not(.item-found)`).first().addClass("item-found")
+  } else {
+    console.log(`Dimming ${item} at ${locWithUnderscores}.`)
+    $(`img[class~="${item}_${locWithUnderscores}"]:not(.item-found)`).first().addClass("item-found")
+  }
 }
 
 function initialize() {
