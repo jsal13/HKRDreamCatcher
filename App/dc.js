@@ -15,7 +15,7 @@ function wsConnect() {
   ws.onmessage = m => { handleMessage(m.data); }
   ws.onerror = e => { console.log("Error connecting to Websocket.  Is Hollow Knight running?"); };
   ws.onopen = e => { if (e.target.readyState === 1) { console.log("okay, opened it."); window.isWSSAlive = 1; } }
-  ws.onclose = () => { setTimeout(() => { wsConnect(); }, 2000) };
+  ws.onclose = () => { setTimeout(() => { wsConnect(); }, 1000) };
 }
 
 $(window).on('load', function () {
@@ -27,9 +27,10 @@ $(window).on('load', function () {
       console.log("Getting spoiler...")
       ws.send("/getspoiler")
       window.setInterval(() => ws.send("/dreamers"), 10000)
+      window.setInterval(() => ws.send("/refresh-items"), 10000)
       clearInterval(pingWSSInterval)
     }
-  }, 2000)
+  }, 1000)
 })
 
 
@@ -45,9 +46,18 @@ function handleMessage(m) {
       getItemsToTrack()
       plotItemsOnPage()
     }
+    else if (Object.keys(j)[0] === "found-items") {
+      const foundItemArray = j["found-items"]
+      for (var idx = 0; idx < foundItemArray.length; idx++) {
+        const row = foundItemArray[idx]
+        handleItemFoundFileRow(row["item"], row["value"], row["current_area"])
+      }
+    }
     else if (Object.keys(j)[0] === "event") {
       if (j["event"] === "load_save") {
-        console.log("Loaded a save.  TODO.")
+        console.log("Okay, a saved game huh, must be nice.")
+        console.log("Getting spoiler...")
+        ws.send("/spoiler")
       } else if (j["event"] === "new_game") {
         console.log("Okay, a new game huh, must be nice.")
         console.log("Getting spoiler...")
@@ -56,7 +66,7 @@ function handleMessage(m) {
     }
     else if (Object.keys(j)[0] === "scene") { }
     else if (Object.keys(j)[0] === "dreamer") {
-      handleItemGetEvent(j["dreamer", j["got_mask"], j["current_area"]])
+      handleItemGetEvent(j["dreamer"], j["got_mask"], j["current_area"])
     }
     else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
       // If we get a general item...
@@ -77,6 +87,18 @@ function handleItemGetEvent(itemEvent, value, current_area) {
   } else {
     ws.send(`/add-to-log {"item": "${item_}", "value": "${value}", "current_area": "${current_area}"}`)
     dimItemFound(item_, current_area)
+  }
+}
+
+function handleItemFoundFileRow(item, value, current_area) {
+  // TODO: this should be combined with above, but we only send it if it's not a row already...
+  console.log("itemfoundfile", item, value, current_area)
+  const annoyingItems = ["Ore", "Simple_Key"]
+
+  if (annoyingItems.includes(item)) {
+    console.log(`Current value of ${item} is ${value}.`)
+  } else {
+    dimItemFound(item, current_area)
   }
 }
 
@@ -144,11 +166,17 @@ function dimItemFound(item, locWithUnderscores) {
   // Item alpha undercored, locWithUnderscores.
   if (["Monomon", "Lurien", "Herrah"].includes(item)) {
     // Due to the 10 second lag and the uniqueness of the dreamers, we should just look for their name.
-    console.log(`Dimming ${item}.`)
-    $(`img[class*="${item}"]:not(.item-found)`).first().addClass("item-found")
+    const selector = $(`img[class*="${item}"]:not(.item-found)`)
+    if (selector.length !== 0) {
+      selector.first().addClass("item-found")
+      console.log(`Dimming ${item}.`)
+    }
   } else {
-    console.log(`Dimming ${item} at ${locWithUnderscores}.`)
-    $(`img[class~="${item}_${locWithUnderscores}"]:not(.item-found)`).first().addClass("item-found")
+    const selector = $(`img[class~="${item}_${locWithUnderscores}"]:not(.item-found)`)
+    if (selector.length !== 0) {
+      selector.first().addClass("item-found")
+      console.log(`Dimming ${item} at ${locWithUnderscores}.`)
+    }
   }
 }
 

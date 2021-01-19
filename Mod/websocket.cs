@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using System.Linq;
 
 namespace DreamCatcher
 {
@@ -23,7 +24,9 @@ namespace DreamCatcher
 
 
     public void NewGame() {
-      File.Create(this.dreamCatcherPath).Dispose();
+      // Remake the file.
+      File.Delete(this.dreamCatcherPath);
+      File.Create(this.dreamCatcherPath).Close();
       Send($"{{\"event\": \"new_game\"}}");
     }
     public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
@@ -43,6 +46,11 @@ namespace DreamCatcher
         if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
         if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
         if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
+      }
+      else if (e.Data == "/refresh-items") {
+        var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
+        string joinedLines = String.Join(", ", lines.ToArray());
+        Send($"{{\"found-items\": [{joinedLines}]}}");
       }
       else if (e.Data.StartsWith("/add-to-log"))
       {
