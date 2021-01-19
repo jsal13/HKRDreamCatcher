@@ -1,5 +1,4 @@
 //TODOS:
-// 1. How do we do dreamers?
 // 2. White pieces?  What is this?
 // 3. How do we do ore + keys?
 // 4. Is there a "set state" we could work with?
@@ -10,20 +9,15 @@
 // Double abilities do not work; kill them off.
 
 function wsFactory() {
-  var ws = new WebSocket("ws://localhost:10051/data")
   var p = new Promise(function (resolve, reject) {
-    ws.onopen = e => {
-      console.log(`WS connection Status: ${e.target.readyState}`);
-      resolve(ws);
 
-      console.log("Getting spoiler...")
-      ws.send("/getspoiler")
-      window.setInterval(() => ws.send("/dreamers"), 10000)
-    }
+    let ws = new WebSocket("ws://localhost:10051/data")
+    ws.onopen = e => { if (e.target.readyState === 1) { resolve(ws) } }
     ws.onmessage = m => { console.log(m); handleMessage(m.data); }
+    ws.onerror = e => { console.log("There was some sort of error. You figure it out if you're so good at Websockets!") }; // do this later.
   })
 
-  return ws
+  return p
 }
 
 
@@ -32,20 +26,8 @@ function handleMessage(m) {
     var j = JSON.parse(m)
     // TODO: Something janky here.  Maybe we should encode and checksum the spoiler.
     if (Object.keys(j)[0] === "spoiler") {
-      // If the WS responds with a spoiler log...
-      if (typeof window.areaItems !== 'undefined') {
-        // If the old spoiler already exists.
-        if (window.areaItems !== j["spoiler"]) {
-          // If the new spoiler doesn't match the old spoiler.
-          window.areaItems = j["spoiler"]
-          plotItemsOnPage()
-        }
-      }
-      else {
-        // If this is the first time we're getting the spoiler.
-        window.areaItems = j["spoiler"]
-        plotItemsOnPage()
-      }
+      window.areaItems = j["spoiler"]
+      plotItemsOnPage()
     }
     else if (Object.keys(j)[0] === "scene") { }
     else if (Object.keys(j)[0] === "dreamer") {
@@ -73,6 +55,7 @@ function handleItemGetEvent(itemEvent, value, current_area) {
   if (annoyingItems.includes(item_)) {
     console.log(`Current value of ${item_} is ${value}.`)
   } else {
+    window.ws.send(`/add-to-log {"item": "${item}", "value": "${value}"`)
     dimItemFound(item_, current_area)
   }
 }
@@ -131,16 +114,35 @@ function dimItemFound(item, locWithUnderscores) {
   }
 }
 
-function initialize() {
-  // Main method for the JS to initialize the WS.
-  window.ws = wsFactory()
 
-  var _itemsToTrackArray = majorItems.concat(dreamers)
-  window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
-  // setInterval(() => { window.ws.send("/getspoiler") }, 10000)
+function pingWSS() {
+  wsFactory()
+    .then(ws => {
+      window.ws = ws;
+      window.isWSSAlive = window.ws.readyState;
+    })
 }
 
-$(window).on('load', function () { initialize(); })
+
+$(window).on('load', function () {
+  window.isWSSAlive = 0
+
+  pingWSSInterval = setInterval(() => {
+    pingWSS();
+    if (window.isWSSAlive) {
+      var _itemsToTrackArray = majorItems.concat(dreamers)
+      window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
+
+      console.log("Getting spoiler...")
+      window.ws.send("/getspoiler")
+      window.setInterval(() => ws.send("/dreamers"), 10000)
+
+      window.ws.send("/add-to-log {'cool': 'dude'}")
+
+      clearInterval(pingWSSInterval)
+    }
+  }, 10000)
+})
 
 // Constants
 const locData = {

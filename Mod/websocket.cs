@@ -4,7 +4,9 @@ using WebSocketSharp;
 using WebSocketSharp.Server;
 using System.Collections.Generic;
 using System;
-
+using System.IO;
+using System.Text;
+using UnityEngine;
 
 namespace DreamCatcher
 {
@@ -14,14 +16,25 @@ namespace DreamCatcher
     private bool messagedHerrah = false;
     private bool messagedMonomon = false;
     private bool messagedLurien = false;
-    public SocketServer() => IgnoreExtensions = true;  // TODO: ?????
+    public string dreamCatcherPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherSpoilerLog.csv");
+    public SocketServer() => IgnoreExtensions = true;
     
     public void Broadcast(string s) => Sessions.Broadcast(s);
 
-    /// <summary>
-    /// If the user sends a /getspoiler request, we return the parsed spoiler Json.
-    /// </summary>
-    /// <param name="e"></param>
+
+    public void NewGame() {
+      
+      File.Create(this.dreamCatcherPath).Dispose();
+      Send("{{\"event\": \"new_game}\"}}");
+    }
+    public void LoadSave(int _slot) { Send("{{\"event\": \"load_save}\"}}"); }
+    public void OnQuit() {
+      ModHooks.Instance.NewGameHook -= NewGame;
+      ModHooks.Instance.SavegameLoadHook -= LoadSave;
+      ModHooks.Instance.SetPlayerBoolHook -= MessageBool;
+      ModHooks.Instance.SetPlayerIntHook -= MessageInt;
+      ModHooks.Instance.ApplicationQuitHook -= OnQuit;
+    }
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
       if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
@@ -30,6 +43,16 @@ namespace DreamCatcher
         if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
         if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
         if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
+      }
+      else if (e.Data.StartsWith("/add-to-log"))
+      {
+        using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
+        {
+          // Need to overwrite when new game.
+          outputFile.WriteLine($"{e.Data.Remove(0, 12)}");
+        }
+        Send("Got string!!");
+
       }
       else { Send(e.Data); }
     }

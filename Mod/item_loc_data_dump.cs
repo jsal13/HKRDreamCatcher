@@ -22,17 +22,21 @@ namespace DreamCatcher
     /// </summary>
     public override void Initialize()
     {
-        Instance = this;
-        Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
-        _wss.AddWebSocketService<SocketServer>("/data", ss =>
-        {
-          ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
-          ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
-          UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
-        });
+      Instance = this;
+      Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
+      _wss.AddWebSocketService<SocketServer>("/data", ss =>
+      {
+        ModHooks.Instance.NewGameHook += ss.NewGame;
+        ModHooks.Instance.SavegameLoadHook += ss.LoadSave;
+        ModHooks.Instance.ApplicationQuitHook += ss.OnQuit;
 
-        _wss.Start();
-        Log("[OK] Initialized Dreamcatcher HKItemLocDataDump Socket.");
+        ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
+        ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
+      });
+
+      _wss.Start();
+      Log("[OK] Initialized Dreamcatcher HKItemLocDataDump Socket.");
     }
 
     public static string GetSpoilerLog()
@@ -40,6 +44,14 @@ namespace DreamCatcher
       string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
       return System.IO.File.ReadAllText(userDataPath);
     }
+
+    public static void InsertIntoDreamCatcherSpoilerLog()
+    {
+      //TODO: Check if file exists
+      string dreamCatcherPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherSpoilerLog.json");
+    }
+ 
+
 
     /// <summary>
     /// Regex Replacements for the Spoiler to make it nice.
@@ -148,8 +160,6 @@ namespace DreamCatcher
       var areaItemJson = JsonConvert.SerializeObject(areaItemDictCleaned);
       return areaItemJson;
     }
-
-
 
     public static string GetAndParseSpoilerLog()
     // TODO: Should I make the two methods above one?
