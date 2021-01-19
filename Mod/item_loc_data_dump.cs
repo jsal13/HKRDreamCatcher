@@ -44,15 +44,7 @@ namespace DreamCatcher
       string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
       return System.IO.File.ReadAllText(userDataPath);
     }
-
-    public static void InsertIntoDreamCatcherSpoilerLog()
-    {
-      //TODO: Check if file exists
-      string dreamCatcherPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherSpoilerLog.json");
-    }
  
-
-
     /// <summary>
     /// Regex Replacements for the Spoiler to make it nice.
     /// </summary>

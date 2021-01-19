@@ -23,12 +23,12 @@ namespace DreamCatcher
 
 
     public void NewGame() {
-      
       File.Create(this.dreamCatcherPath).Dispose();
-      Send("{{\"event\": \"new_game}\"}}");
+      Send($"{{\"event\": \"new_game\"}}");
     }
-    public void LoadSave(int _slot) { Send("{{\"event\": \"load_save}\"}}"); }
+    public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
     public void OnQuit() {
+      Send($"{{\"event\": \"quit_game\"}}");
       ModHooks.Instance.NewGameHook -= NewGame;
       ModHooks.Instance.SavegameLoadHook -= LoadSave;
       ModHooks.Instance.SetPlayerBoolHook -= MessageBool;
@@ -51,7 +51,6 @@ namespace DreamCatcher
           // Need to overwrite when new game.
           outputFile.WriteLine($"{e.Data.Remove(0, 12)}");
         }
-        Send("Got string!!");
 
       }
       else { Send(e.Data); }
@@ -462,7 +461,7 @@ namespace DreamCatcher
         Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
       } catch (Exception e)
       {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"");
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"}}");
       }
 
     }

@@ -4,30 +4,58 @@
 // 4. Is there a "set state" we could work with?
 // 5. Keep checking names with mini runs.
 // 6. Condense datatypes.  We almost certainly don't need all these things.
-
-
 // Double abilities do not work; kill them off.
 
-function wsFactory() {
-  var p = new Promise(function (resolve, reject) {
+// ===============================
+// WEBSOCKET SERVER AND PAGE INIT 
+// ===============================
 
-    let ws = new WebSocket("ws://localhost:10051/data")
-    ws.onopen = e => { if (e.target.readyState === 1) { resolve(ws) } }
-    ws.onmessage = m => { console.log(m); handleMessage(m.data); }
-    ws.onerror = e => { console.log("There was some sort of error. You figure it out if you're so good at Websockets!") }; // do this later.
-  })
-
-  return p
+function wsConnect() {
+  // var p = new Promise(function (resolve, reject) {
+  ws = new WebSocket("ws://localhost:10051/data")
+  ws.onmessage = m => { handleMessage(m.data); }
+  ws.onerror = e => { console.log("Error connecting to Websocket.  Is Hollow Knight running?"); };
+  ws.onopen = e => { if (e.target.readyState === 1) { console.log("okay, opened it."); window.isWSSAlive = 1; } }
+  ws.onclose = () => { setTimeout(() => { wsConnect(); }, 2000) };
+  // })
+  // return p
 }
 
+$(window).on('load', function () {
+  window.isWSSAlive = 0
+  wsConnect();
+
+  pingWSSInterval = setInterval(() => {
+    if (window.isWSSAlive) {
+      console.log("Getting spoiler...")
+      ws.send("/getspoiler")
+      window.setInterval(() => ws.send("/dreamers"), 10000)
+      clearInterval(pingWSSInterval)
+    }
+  }, 2000)
+})
+
+
+// ================
+// MESSAGE HANDLING
+// ================
 
 function handleMessage(m) {
   try {
     var j = JSON.parse(m)
-    // TODO: Something janky here.  Maybe we should encode and checksum the spoiler.
     if (Object.keys(j)[0] === "spoiler") {
       window.areaItems = j["spoiler"]
+      getItemsToTrack()
       plotItemsOnPage()
+    }
+    else if (Object.keys(j)[0] === "event") {
+      if (j["event"] === "load_save") {
+        console.log("Loaded a save.  TODO.")
+      } else if (j["event"] === "new_game") {
+        console.log("Okay, a new game huh, must be nice.")
+        console.log("Getting spoiler...")
+        ws.send("/spoiler")
+      }
     }
     else if (Object.keys(j)[0] === "scene") { }
     else if (Object.keys(j)[0] === "dreamer") {
@@ -36,11 +64,6 @@ function handleMessage(m) {
     else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
       // If we get a general item...
       handleItemGetEvent(j["item"], j["value"], j["current_area"])
-    }
-    else if (j["item"].includes("RandomizerMod.Dreamer")) {
-      // If we get a dreamer...
-      var dreamerName = j["item"].split(".")[2]
-      handleItemGetEvent(dreamerName, j["value"], j["current_area"])
     }
   } catch {
     console.log("didn't parse: ", m)
@@ -55,13 +78,32 @@ function handleItemGetEvent(itemEvent, value, current_area) {
   if (annoyingItems.includes(item_)) {
     console.log(`Current value of ${item_} is ${value}.`)
   } else {
-    window.ws.send(`/add-to-log {"item": "${item}", "value": "${value}"`)
+    ws.send(`/add-to-log {"item": "${item_}", "value": "${value}", "current_area": "${current_area}"}`)
     dimItemFound(item_, current_area)
   }
 }
 
-// HTML-Side JS
+function getItemsToTrack() {
+  var _itemsToTrackArray = majorItems.concat(dreamers)
+  window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
+}
+
+// function _makeItemsToTrackArray() {
+//   var itemsToTrack = []
+//   if (window.spoilerItemsWanted.includes("dreamers")) { itemsToTrack = itemsToTrack.concat(dreamers) }
+//   if (window.spoilerItemsWanted.includes("majorItems")) { itemsToTrack = itemsToTrack.concat(majorItems) }
+//   if (window.spoilerItemsWanted.includes("minorItems")) { itemsToTrack = itemsToTrack.concat(minorItems) }
+//   return itemsToTrack.map(s => itemNameAlphaUnderscore(s));
+// }
+
+
+// ===============
+// HTML FUNCTIONS
+// ===============
+
 function plotItemsOnPage() {
+  $("#tracker-table").empty()
+
   var html_ = ""
   const areas = Object.keys(window.areaItems)
   for (var idx = 0; idx < areas.length; idx++) {
@@ -101,7 +143,6 @@ function plotItemsOnPage() {
   $("#tracker-table").append(html_)
 }
 
-
 function dimItemFound(item, locWithUnderscores) {
   // Item alpha undercored, locWithUnderscores.
   if (["Monomon", "Lurien", "Herrah"].includes(item)) {
@@ -114,37 +155,9 @@ function dimItemFound(item, locWithUnderscores) {
   }
 }
 
-
-function pingWSS() {
-  wsFactory()
-    .then(ws => {
-      window.ws = ws;
-      window.isWSSAlive = window.ws.readyState;
-    })
-}
-
-
-$(window).on('load', function () {
-  window.isWSSAlive = 0
-
-  pingWSSInterval = setInterval(() => {
-    pingWSS();
-    if (window.isWSSAlive) {
-      var _itemsToTrackArray = majorItems.concat(dreamers)
-      window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
-
-      console.log("Getting spoiler...")
-      window.ws.send("/getspoiler")
-      window.setInterval(() => ws.send("/dreamers"), 10000)
-
-      window.ws.send("/add-to-log {'cool': 'dude'}")
-
-      clearInterval(pingWSSInterval)
-    }
-  }, 10000)
-})
-
-// Constants
+// =========
+// CONSTANTS
+// =========
 const locData = {
   'Abyss': { background: "#707170", border: "#242524", abbr: "Abyss", display: 'Abyss' },
   'Ancient Basin': { background: "#73747d", border: "#282a37", abbr: "AnBsn", display: 'Ancient_Basin' },
@@ -165,8 +178,6 @@ const locData = {
   'Resting Grounds': { background: "#84799d", border: "#423169", abbr: "RestG", display: 'Resting_Grounds' },
   'Royal Waterways': { background: "#6d919d", border: "#1e5669", abbr: "RWatr", display: 'Royal_Waterways' },
 }
-
-// Remember to also have "scene" for the scene processing.
 
 // Collector's map?
 const eventToItemData = {
@@ -205,7 +216,6 @@ const eventToItemData = {
   'hadPinGrub': "Grub",
   'gotCharm36': "" // what is this?  white piece?
 }
-
 
 // Here we make it so that the tracker shows the base version of the spell.
 const itemNameAlphaUnderscore = {
@@ -253,15 +263,6 @@ const itemNameAlphaUnderscore = {
   "Vengeful Spirit": "Vengeful_Spirit",
   "Void Heart": "Void_Heart",
 }
-
-
-// function _makeItemsToTrackArray() {
-//   var itemsToTrack = []
-//   if (window.spoilerItemsWanted.includes("dreamers")) { itemsToTrack = itemsToTrack.concat(dreamers) }
-//   if (window.spoilerItemsWanted.includes("majorItems")) { itemsToTrack = itemsToTrack.concat(majorItems) }
-//   if (window.spoilerItemsWanted.includes("minorItems")) { itemsToTrack = itemsToTrack.concat(minorItems) }
-//   return itemsToTrack.map(s => itemNameAlphaUnderscore(s));
-// }
 
 const dreamers = [
   "Herrah",
