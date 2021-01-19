@@ -11,14 +11,11 @@
 // ===============================
 
 function wsConnect() {
-  // var p = new Promise(function (resolve, reject) {
   ws = new WebSocket("ws://localhost:10051/data")
   ws.onmessage = m => { handleMessage(m.data); }
   ws.onerror = e => { console.log("Error connecting to Websocket.  Is Hollow Knight running?"); };
   ws.onopen = e => { if (e.target.readyState === 1) { console.log("okay, opened it."); window.isWSSAlive = 1; } }
   ws.onclose = () => { setTimeout(() => { wsConnect(); }, 2000) };
-  // })
-  // return p
 }
 
 $(window).on('load', function () {
