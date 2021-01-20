@@ -52,7 +52,7 @@ namespace DreamCatcher
     /// <returns></returns>
     public static string ParseSpoilerLog(string rawSpoilerText)
     {
-      List<string> relevantItems = new List<string>() {
+      /*List<string> relevantItems = new List<string>() {
         "Herrah", "Lurien", "Monomon", "Dreamer", "Abyss Shriek", "Awoken Dream Nail", "Crystal Heart", "Descending Dark",
         "Desolate Dive", "Dream Gate", "Dream Nail", "Howling Wraiths", "Isma's Tear", "Mantis Claw",
         "Monarch Wings", "Mothwing Cloak", "Shade Cloak", "Shade Soul", "Vengeful Spirit", "City Crest",
@@ -60,7 +60,7 @@ namespace DreamCatcher
         "King's Brand", "Love Key", "Lumafly Lantern", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak",
         "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin",
         "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart"
-      };
+      };*/
 
       Dictionary<string, string> smallAreaToGeneralArea = new Dictionary<string, string>(){
         {"Ancestral Mound", "Forgotten Crossroads"}, 
@@ -141,7 +141,8 @@ namespace DreamCatcher
           if (splitstr2[0].TrimEnd(':') != area_) continue;
 
           // It looks like [area, item1, item2, ...] so we skip 1 to exclude area:
-          foreach (string item in splitstr2.Skip(1)) if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
+          foreach (string item in splitstr2.Skip(1)) areaItemDict[area_].Add(item);
+          // before: if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
         }
       }
 

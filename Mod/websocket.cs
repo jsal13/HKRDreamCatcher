@@ -8,6 +8,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 namespace DreamCatcher
 {
@@ -18,78 +19,7 @@ namespace DreamCatcher
     private bool messagedMonomon = false;
     private bool messagedLurien = false;
     public string dreamCatcherPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherSpoilerLog.csv");
-    public SocketServer() => IgnoreExtensions = true;
-    
-    public void Broadcast(string s) => Sessions.Broadcast(s);
-
-
-    public void NewGame() {
-      // Remake the file.
-      File.Delete(this.dreamCatcherPath);
-      File.Create(this.dreamCatcherPath).Close();
-      Send($"{{\"event\": \"new_game\"}}");
-    }
-    public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
-    public void OnQuit() {
-      Send($"{{\"event\": \"quit_game\"}}");
-      ModHooks.Instance.NewGameHook -= NewGame;
-      ModHooks.Instance.SavegameLoadHook -= LoadSave;
-      ModHooks.Instance.SetPlayerBoolHook -= MessageBool;
-      ModHooks.Instance.SetPlayerIntHook -= MessageInt;
-      ModHooks.Instance.ApplicationQuitHook -= OnQuit;
-    }
-    protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
-    {
-      if (e.Data == "/getspoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
-      else if (e.Data == "/dreamers")
-      {
-        if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
-        if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
-        if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
-      }
-      else if (e.Data == "/refresh-items") {
-        var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
-        string joinedLines = String.Join(", ", lines.ToArray());
-        Send($"{{\"found-items\": [{joinedLines}]}}");
-      }
-      else if (e.Data.StartsWith("/add-to-log"))
-      {
-        using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
-        {
-          // Need to overwrite when new game.
-          outputFile.WriteLine($"{e.Data.Remove(0, 12)}");
-        }
-
-      }
-      else { Send(e.Data); }
-    }
-    protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
-
-    /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
-    /// https://radiance.host/apidocs/Hooks.html
-    public void MessageBool(string item, bool value)
-    {
-      if (State != WebSocketState.Open) { return; }
-
-      var lowercaseBool = value ? "true" : "false";
-      Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{this.currentArea}\"}}");
-    }
-    public void MessageInt(string item, int value)
-    {
-      if (item == "RandomizerMod.Monomon" || item == "monomonDefeated") item = "maskBrokenMonomon";
-      else if (item == "RandomizerMod.Lurien" || item == "lurienDefeated") item = "maskBrokenLurien";
-      else if (item == "RandomizerMod.Herrah" || item == "hegemolDefeated") item = "maskBrokenHegemol";
-
-      if (State != WebSocketState.Open) { return; }
-      Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{this.currentArea}\"}}");
-    }
-    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
-    {
-      if (State != WebSocketState.Open) { return; }
-      // Reads the user Rando Spoilerlog.
-      Thread.Sleep(200);
-      // TODO: Put this in a file, dang.
-      var roomMappings = new Dictionary<string, string>(){
+    public Dictionary<string, string> roomMappings = new Dictionary<string, string>(){
       {"", ""},
       {"Menu_Title", ""},
       {"Abyss_01", "Royal_Waterways"},
@@ -462,17 +392,103 @@ namespace DreamCatcher
       {"White_Palace_19", "White_Palace"},
       {"White_Palace_20", "White_Palace"}
     };
+    public SocketServer() => IgnoreExtensions = true;
+    
+    public void Broadcast(string s) => Sessions.Broadcast(s);
 
+
+    public void NewGame() {
+      // Remake the file.
+      Send("AHHHHHH");
+      Send($"{{\"event\": \"new_game\"}}");
+      File.Delete(this.dreamCatcherPath);
+      File.Create(this.dreamCatcherPath).Close();
+    }
+    public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
+    public void OnQuit() {
+      Send($"{{\"event\": \"quit_game\"}}");
+      ModHooks.Instance.NewGameHook -= NewGame;
+      ModHooks.Instance.SavegameLoadHook -= LoadSave;
+      ModHooks.Instance.SetPlayerBoolHook -= MessageBool;
+      ModHooks.Instance.SetPlayerIntHook -= MessageInt;
+      ModHooks.Instance.ApplicationQuitHook -= OnQuit;
+    }
+    protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
+    {
       try
       {
-        this.currentArea = (string)roomMappings[scene.name];
-        Send($"{{\"scene\": \"{scene.name}\", \"scene_parsed\": \"{this.currentArea}\"}}");
-      } catch (Exception e)
-      {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{scene.name}\"}}");
+        if (e.Data == "/get-spoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+        else if (e.Data == "/get-scene")
+        {
+          // Load a scene, the manager hook takes care of it from there.
+          UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        }
+        else if (e.Data == "/dreamers")
+        {
+          if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
+          if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
+          if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
+        }
+        else if (e.Data == "/refresh-items")
+        {
+          var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
+          string joinedLines = String.Join(", ", lines.ToArray());
+          Send($"{{\"found-items\": [{joinedLines}]}}");
+        }
+        else if (e.Data.StartsWith("/add-to-log"))
+        {
+          using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
+          {
+            // Need to overwrite when new game.
+            outputFile.WriteLine($"{e.Data.Remove(0, 12)}");
+          }
+
+        }
+        else { Send(e.Data); }
+      } catch (Exception ex) {
+        Send($"{ex}");
       }
+    }
+    protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
+
+    /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
+    /// https://radiance.host/apidocs/Hooks.html
+    public void MessageBool(string item, bool value)
+    {
+      if (State != WebSocketState.Open) { return; }
+      UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+      var lowercaseBool = value ? "true" : "false";
+      Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+    }
+    public void MessageInt(string item, int value)
+    {
+      if (State != WebSocketState.Open) { return; }
+      UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+      Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+    }
+
+    #pragma warning disable IDE0060 // Remove unused parameter
+    public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
+    #pragma warning restore IDE0060 // Remove unused parameter
+    {
+      if (State != WebSocketState.Open) { return; }
+      // Reads the user Rando Spoilerlog.
+      Thread.Sleep(200);
+      SendSceneData(scene.name);
 
     }
 
+    public void SendSceneData(string sceneName)
+    {
+      try
+      {
+        this.currentArea = (string)roomMappings[sceneName];
+        Send($"{{\"scene\": \"{sceneName}\", \"scene_parsed\": \"{this.currentArea}\"}}");
+      }
+      catch (Exception e)
+      {
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{sceneName}\"}}");
+      }
+    }
   }
 }

@@ -25,9 +25,10 @@ $(window).on('load', function () {
   pingWSSInterval = setInterval(() => {
     if (window.isWSSAlive) {
       console.log("Getting spoiler...")
-      ws.send("/getspoiler")
+      ws.send("/get-spoiler")
       window.setInterval(() => ws.send("/dreamers"), 10000)
       window.setInterval(() => ws.send("/refresh-items"), 10000)
+      window.setInterval(() => ws.send('/get-scene', 10000))
       clearInterval(pingWSSInterval)
     }
   }, 1000)
@@ -39,106 +40,89 @@ $(window).on('load', function () {
 // ================
 
 function handleMessage(m) {
+  // Handles incoming messages depending on the first key sent.
   try {
-    var j = JSON.parse(m)
-    if (Object.keys(j)[0] === "spoiler") {
-      window.areaItems = j["spoiler"]
-      getItemsToTrack()
-      plotItemsOnPage()
+    var message = JSON.parse(m)
+    // console.log(message)
+
+    var messageType = Object.keys(message)[0]
+    var messageVal = message[messageType]
+
+    switch (messageType) {
+      case "spoiler":
+        plotItemsOnPage(messageVal)
+        break;
+
+      case "found-items":
+        const foundItemArray = messageVal
+        for (var idx = 0; idx < foundItemArray.length; idx++) {
+          // Send a ping to the server to dim the item, but don't send an "add-to-log".
+          dimItemFound(foundItemArray[idx]['item'], foundItemArray[idx]['current_area'])
+        }
+        break;
+
+      case "event":  // TODO: Should make a thing to handle events...
+        if (value === "load_save") {
+          console.log("Okay, a saved game huh, must be nice.")
+          console.log("Getting spoiler...")
+          ws.send("/spoiler")
+        } else if (value === "new_game") {
+          console.log("Okay, a new game huh, must be nice.")
+          console.log("Getting spoiler...")
+          ws.send("/spoiler")
+        }
+        break;
+
+      case "scene": // TODO: Do I need to send these?
+        break;
+
+      case "dreamer": // Combine this with items below.
+        ws.send(`/add-to-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
+        dimItemFound(messageVal, message["current_area"])
+        break;
+
+      default: // we parse the item...
+        console.log("default evt:", messageVal)
+        if (eventsToTrack.includes(messageVal) && message["current_area"] !== '') {
+          ws.send(`/add-to-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
+          dimItemFound(messageVal, message["current_area"])
+        }
+        break;
     }
-    else if (Object.keys(j)[0] === "found-items") {
-      const foundItemArray = j["found-items"]
-      for (var idx = 0; idx < foundItemArray.length; idx++) {
-        const row = foundItemArray[idx]
-        handleItemFoundFileRow(row["item"], row["value"], row["current_area"])
-      }
-    }
-    else if (Object.keys(j)[0] === "event") {
-      if (j["event"] === "load_save") {
-        console.log("Okay, a saved game huh, must be nice.")
-        console.log("Getting spoiler...")
-        ws.send("/spoiler")
-      } else if (j["event"] === "new_game") {
-        console.log("Okay, a new game huh, must be nice.")
-        console.log("Getting spoiler...")
-        ws.send("/spoiler")
-      }
-    }
-    else if (Object.keys(j)[0] === "scene") { }
-    else if (Object.keys(j)[0] === "dreamer") {
-      handleItemGetEvent(j["dreamer"], j["got_mask"], j["current_area"])
-    }
-    else if (window.itemsToTrack.includes(eventToItemData[j["item"]])) {
-      // If we get a general item...
-      handleItemGetEvent(j["item"], j["value"], j["current_area"])
-    }
-  } catch {
-    console.log("didn't parse: ", m)
+  } catch (e) {
+    console.log("[!!] Didn't parse:", m, e)
   }
 }
-
-function handleItemGetEvent(itemEvent, value, current_area) {
-  console.log(itemEvent, value, current_area)
-  var item_ = eventToItemData[itemEvent]
-  const annoyingItems = ["Ore", "Simple_Key"]
-
-  if (annoyingItems.includes(item_)) {
-    console.log(`Current value of ${item_} is ${value}.`)
-  } else {
-    ws.send(`/add-to-log {"item": "${item_}", "value": "${value}", "current_area": "${current_area}"}`)
-    dimItemFound(item_, current_area)
-  }
-}
-
-function handleItemFoundFileRow(item, value, current_area) {
-  // TODO: this should be combined with above, but we only send it if it's not a row already...
-  console.log("itemfoundfile", item, value, current_area)
-  const annoyingItems = ["Ore", "Simple_Key"]
-
-  if (annoyingItems.includes(item)) {
-    console.log(`Current value of ${item} is ${value}.`)
-  } else {
-    dimItemFound(item, current_area)
-  }
-}
-
-function getItemsToTrack() {
-  var _itemsToTrackArray = majorItems.concat(dreamers)
-  window.itemsToTrack = _itemsToTrackArray.map(s => itemNameAlphaUnderscore[s])
-}
-
-// function _makeItemsToTrackArray() {
-//   var itemsToTrack = []
-//   if (window.spoilerItemsWanted.includes("dreamers")) { itemsToTrack = itemsToTrack.concat(dreamers) }
-//   if (window.spoilerItemsWanted.includes("majorItems")) { itemsToTrack = itemsToTrack.concat(majorItems) }
-//   if (window.spoilerItemsWanted.includes("minorItems")) { itemsToTrack = itemsToTrack.concat(minorItems) }
-//   return itemsToTrack.map(s => itemNameAlphaUnderscore(s));
-// }
-
 
 // ===============
 // HTML FUNCTIONS
 // ===============
 
-function plotItemsOnPage() {
+function makeDivCSS(area) {
+  var divStyle = `background: ${locData[area]['background']}; 
+        border: 6px solid ${locData[area]['border']};`
+  var circleStyle = `background: ${locData[area]['border']}; 
+        border: 2px solid ${locData[area]['border']};`
+  return [divStyle, circleStyle]
+}
+
+function plotItemsOnPage(areaItems) {
   $("#tracker-table").empty()
 
   var html_ = ""
-  const areas = Object.keys(window.areaItems)
+  const areas = Object.keys(areaItems)
   for (var idx = 0; idx < areas.length; idx++) {
-    var divStyle = `background: ${locData[areas[idx]]['background']}; 
-        border: 6px solid ${locData[areas[idx]]['border']};`
-    var circleStyle = `background: ${locData[areas[idx]]['border']}; 
-        border: 2px solid ${locData[areas[idx]]['border']};`
+    const thisAreaItems = areaItems[areas[idx]]
 
     // All the image tags for the tracker.
+    const [divStyle, circleStyle] = makeDivCSS(areas[idx])
     var trackerImages_ = ""
-    for (var jdx = 0; jdx < areaItems[areas[idx]].length; jdx++) {
-      var itemCleanName_ = itemNameAlphaUnderscore[areaItems[areas[idx]][jdx]];
-      if (itemsToTrack.includes(itemCleanName_)) {
+    for (var jdx = 0; jdx < thisAreaItems.length; jdx++) {
+      var _event = itemToBaseEvent[thisAreaItems[jdx]];
+      if (eventsToTrack.includes(_event)) {
         trackerImages_ += `
         <div class="tracker-image">
-          <img class="item-image ${itemCleanName_}_${locData[areas[idx]]["display"]}" src="./images/${itemCleanName_}.png"/>
+          <img class="item-image ${_event}_${locData[areas[idx]]["display"]}" src="./images/${eventToBaseItem[_event]}.png"/>
         </div>`
       }
     }
@@ -162,22 +146,15 @@ function plotItemsOnPage() {
   $("#tracker-table").append(html_)
 }
 
-function dimItemFound(item, locWithUnderscores) {
-  // Item alpha undercored, locWithUnderscores.
-  if (["Monomon", "Lurien", "Herrah"].includes(item)) {
-    // Due to the 10 second lag and the uniqueness of the dreamers, we should just look for their name.
-    const selector = $(`img[class*="${item}"]:not(.item-found)`)
-    if (selector.length !== 0) {
-      selector.first().addClass("item-found")
-      console.log(`Dimming ${item}.`)
-    }
-  } else {
-    const selector = $(`img[class~="${item}_${locWithUnderscores}"]:not(.item-found)`)
-    if (selector.length !== 0) {
-      selector.first().addClass("item-found")
-      console.log(`Dimming ${item} at ${locWithUnderscores}.`)
-    }
-  }
+function dimItemFound(itemEvent, locWithUnderscores) {
+  // Due to the 10 second lag and the uniqueness of the dreamers, we should just look for their name.
+  console.log("Okay, dimming:", itemEvent, locWithUnderscores)
+  var isDreamerItem = ["Monomon", "Lurien", "Herrah"].includes(itemEvent)
+  var _loc = isDreamerItem ? "" : `_${locWithUnderscores}`
+
+  const selector = $(`img[class*="${itemEvent}${_loc}"]:not(.item-found)`)
+  selector.first().addClass("item-found")
+
 }
 
 // =========
@@ -204,8 +181,12 @@ const locData = {
   'Royal Waterways': { background: "#6d919d", border: "#1e5669", abbr: "RWatr", display: 'Royal_Waterways' },
 }
 
-// Collector's map?
-const eventToItemData = {
+
+// Collector's map?  
+// This goes to the base item.
+
+// Ore, Simplekeys is weird.  Ore has a += 1 sort of thing going on when you collect it, so it has to be treated differently.
+eventToBaseItem = {
   'scene': '',
   'Herrah': 'Herrah',
   'Monomon': 'Monomon',
@@ -233,69 +214,74 @@ const eventToItemData = {
   'hasVengefulSpirit': "Vengeful_Spirit",
   'hasShadeSoul': "Vengeful_Spirit",
   'hasCyclone': "Cyclone_Slash",
-  'hasDashSlash': "Great_Slash", // wait what?
-  'hasUpwardSlash': "Dash_Slash", // why is this dash slash?
+  'hasDashSlash': "Great_Slash", // [sic]
+  'hasUpwardSlash': "Dash_Slash",
   'hasDreamNail': "Dream_Nail",
   'hasDreamGate': "Dream_Nail",
   'dreamNailUpgraded': "Dream_Nail",
-  'hadPinGrub': "Grub",
-  'gotCharm36': "" // what is this?  white piece?
+  'hasPinGrub': "Grub",
+  // 'gotCharm_25': 'Unbreakable_Strength',
+  'gotCharm_19': 'Shaman_Stone',
+  'gotCharm_20': 'Soul_Catcher',
+  'gotCharm_31': 'Dashmaster',
 }
 
-// Here we make it so that the tracker shows the base version of the spell.
-const itemNameAlphaUnderscore = {
-  "Abyss Shriek": "Howling_Wraiths",
-  "Awoken Dream Nail": "Dream_Nail",
-  "City Crest": "City_Crest",
-  "Collector's Map": "Grub",
-  "Crystal Heart": "Crystal_Heart",
-  "Cyclone Slash": "Cyclone_Slash",
-  "Dash Slash": "Dash_Slash",
-  "Descending Dark": "Desolate_Dive",
-  "Desolate Dive": "Desolate_Dive",
-  "Dream Gate": "Dream_Nail",
-  "Dream Nail": "Dream_Nail",
-  "Elegant Key": "Elegant_Key",
-  "Great Slash": "Great_Slash",
-  "Grimmchild": "Grimmchild",
+//Here we make it so that the tracker shows the base version of the spell.
+// This parses the spoiler.
+itemToBaseEvent = {
+  "Abyss Shriek": "hasHowlingWraiths",
+  "Awoken Dream Nail": "hasDreamNail",
+  // "City Crest": "City_Crest",
+  "Collector's Map": "hasPinGrub",
+  "Crystal Heart": "hasSuperDash",
+  "Cyclone Slash": "hasCyclone",
+  "Dash Slash": "hasUpwardSlash",
+  "Descending Dark": "hasDesolateDive",
+  "Desolate Dive": "hasDesolateDive",
+  "Dream Gate": "hasDreamNail",
+  "Dream Nail": "hasDreamNail",
+  "Elegant Key": "hasWhiteKey",
+  "Great Slash": "hasDashSlash",  // [sic]
+  // "Grimmchild": "Grimmchild",
   "Herrah": "Herrah",
-  "Howling Wraiths": "Howling_Wraiths",
-  "Isma's Tear": "Ismas_Tear",
-  "King Fragment": "Charm_KingSoul_Left",
-  "King's Brand": "Kings_Brand",
-  "Love Key": "Love_Key",
-  "Lumafly Lantern": "Lumafly_Lantern",
+  "Howling Wraiths": "hasHowlingWraiths",
+  "Isma's Tear": "hasAcidArmour",
+  // "King Fragment": "Charm_KingSoul_Left",
+  "King's Brand": "hasKingsBrand",
+  "Love Key": "hasLoveKey",
+  "Lumafly Lantern": "hasLantern",
   "Lurien": "Lurien",
-  "Mantis Claw": "Mantis_Claw",
-  "Monarch Wings": "Monarch_Wings",
+  "Mantis Claw": "hasWalljump",
+  "Monarch Wings": "hasDoubleJump",
   "Monomon": "Monomon",
-  "Mothwing Cloak": "Mothwing_Cloak",
+  "Mothwing Cloak": "hasDash",
   "Pale Ore-Basin": "Pale_Ore",
   "Pale Ore-Colosseum": "Pale_Ore",
   "Pale Ore-Crystal Peak": "Pale_Ore",
   "Pale Ore-Grubs": "Pale_Ore",
   "Pale Ore-Nosk": "Pale_Ore",
   "Pale Ore-Seer": "Pale_Ore",
-  "Queen Fragment": "Charm_KingSoul_Right",
-  "Shade Cloak": "Mothwing_Cloak",
-  "Shade Soul": "Vengeful_Spirit",
-  "Shopkeeper's Key": "Shopkeepers_Key",
-  "Simple Key-Basin": "Simple_Key",
-  "Simple Key-City": "Simple_Key",
-  "Simple Key-Lurker": "Simple_Key",
-  "Simple Key-Sly": "Simple_Key",
-  "Tram Pass": "Tram_Pass",
-  "Vengeful Spirit": "Vengeful_Spirit",
-  "Void Heart": "Void_Heart",
+  // "Queen Fragment": "Charm_KingSoul_Right",
+  "Shade Cloak": "hasDash",
+  "Shade Soul": "hasVengefulSpirit",
+  // "Shopkeeper's Key": "hasSlykey",
+  // // "Simple Key-Basin": "Simple_Key",
+  // // "Simple Key-City": "Simple_Key",
+  // // "Simple Key-Lurker": "Simple_Key",
+  // // "Simple Key-Sly": "Simple_Key",
+  "Tram Pass": "hasTramPass",
+  "Vengeful Spirit": "hasVengefulSpirit",
+  // "Void Heart": "Void_Heart",
+  // 'Unbreakable Strength': 'gotCharm_25',
+  'Shaman Stone': 'gotCharm_19',
+  'Soul Catcher': 'gotCharm_20',
+  'Dashmaster': 'gotCharm_31',
 }
 
-const dreamers = [
+itemsToTrack = [
   "Herrah",
   "Lurien",
   "Monomon",
-]
-
-const majorItems = [
   "Collector's Map",
   "Abyss Shriek",
   "Awoken Dream Nail",
@@ -313,6 +299,41 @@ const majorItems = [
   "Shade Cloak",
   "Shade Soul",
   "Vengeful Spirit",
+  'Shaman Stone',
+  'Soul Catcher',
+  'Dashmaster',
+  "Tram Pass",
 ]
 
-const minorItems = ["City Crest", "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment", "King's Brand", "Love Key", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak", "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin", "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart",]
+eventsToTrack = itemsToTrack.map(x => itemToBaseEvent[x])
+
+
+
+
+// const dreamers = [
+//   "Herrah",
+//   "Lurien",
+//   "Monomon",
+// ]
+
+// const majorItems = [
+//   "Collector's Map",
+//   "Abyss Shriek",
+//   "Awoken Dream Nail",
+//   "Crystal Heart",
+//   "Descending Dark",
+//   "Desolate Dive",
+//   "Dream Gate",
+//   "Dream Nail",
+//   "Howling Wraiths",
+//   "Isma's Tear",
+//   "Lumafly Lantern",
+//   "Mantis Claw",
+//   "Monarch Wings",
+//   "Mothwing Cloak",
+//   "Shade Cloak",
+//   "Shade Soul",
+//   "Vengeful Spirit",
+// ]
+
+// const minorItems = ["City Crest", "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment", "King's Brand", "Love Key", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak", "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin", "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart",]
