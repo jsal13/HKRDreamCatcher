@@ -26,13 +26,13 @@ namespace DreamCatcher
       Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
       _wss.AddWebSocketService<SocketServer>("/data", ss =>
       {
-        ModHooks.Instance.NewGameHook += ss.NewGame;
         ModHooks.Instance.SavegameLoadHook += ss.LoadSave;
         ModHooks.Instance.ApplicationQuitHook += ss.OnQuit;
 
         ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
         ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
+        On.GameManager.BeginSceneTransition += ss.ManageTransitions;
       });
 
       _wss.Start();

@@ -393,63 +393,75 @@ namespace DreamCatcher
       {"White_Palace_20", "White_Palace"}
     };
     public SocketServer() => IgnoreExtensions = true;
-    
+
     public void Broadcast(string s) => Sessions.Broadcast(s);
 
-
-    public void NewGame() {
-      // Remake the file.
-      Send("AHHHHHH");
-      Send($"{{\"event\": \"new_game\"}}");
-      File.Delete(this.dreamCatcherPath);
-      File.Create(this.dreamCatcherPath).Close();
+    protected override void OnOpen()
+    {
+      Send($"{{\"event\": \"websocket_open\"}}");
     }
-    public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
-    public void OnQuit() {
-      Send($"{{\"event\": \"quit_game\"}}");
-      ModHooks.Instance.NewGameHook -= NewGame;
+    protected override void OnClose(CloseEventArgs e)
+    {
+      Send($"{{\"event\": \"websocket_closed\"}}");
+      base.OnClose(e);
       ModHooks.Instance.SavegameLoadHook -= LoadSave;
       ModHooks.Instance.SetPlayerBoolHook -= MessageBool;
       ModHooks.Instance.SetPlayerIntHook -= MessageInt;
       ModHooks.Instance.ApplicationQuitHook -= OnQuit;
+      On.GameManager.BeginSceneTransition -= ManageTransitions;
     }
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
       try
       {
-        if (e.Data == "/get-spoiler") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
+        if (e.Data == "/get-spoiler-log") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
         else if (e.Data == "/get-scene")
         {
           // Load a scene, the manager hook takes care of it from there.
           UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         }
-        else if (e.Data == "/dreamers")
+        else if (e.Data == "/ping-dreamers")
         {
           if (PlayerData.instance.monomonDefeated && !messagedMonomon) { MessageBool("Monomon", true); messagedMonomon = true; }
           if (PlayerData.instance.lurienDefeated && !messagedLurien) { MessageBool("Lurien", true); messagedLurien = true; }
           if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { MessageBool("Herrah", true); messagedHerrah = true; }
         }
-        else if (e.Data == "/refresh-items")
+        else if (e.Data == "/refresh-dc-log")
         {
           var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
           string joinedLines = String.Join(", ", lines.ToArray());
           Send($"{{\"found-items\": [{joinedLines}]}}");
         }
-        else if (e.Data.StartsWith("/add-to-log"))
+        else if (e.Data.StartsWith("/add-to-dc-log"))
         {
           using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
           {
             // Need to overwrite when new game.
-            outputFile.WriteLine($"{e.Data.Remove(0, 12)}");
+            // TODO: Split this on space and take the tail and join it?
+            outputFile.WriteLine($"{e.Data.Remove(0, 15)}");
           }
 
         }
+        else if (e.Data.StartsWith("/recreate-dc-log"))
+        {
+          File.Delete(this.dreamCatcherPath);
+          File.Create(this.dreamCatcherPath).Close();
+        }
         else { Send(e.Data); }
-      } catch (Exception ex) {
+      }
+      catch (Exception ex)
+      {
         Send($"{ex}");
       }
     }
     protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
+
+    // Hooks.
+    public void LoadSave(int _slot) { Send($"{{\"event\": \"load_save\"}}"); }
+    public void OnQuit()
+    {
+      Send($"{{\"event\": \"quit_game\"}}");
+    }
 
     /// If the API returns a bool, go to MessageBool.  Otherwise, go to MessageInt.
     /// https://radiance.host/apidocs/Hooks.html
@@ -470,6 +482,7 @@ namespace DreamCatcher
     #pragma warning disable IDE0060 // Remove unused parameter
     public void MessageSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode _mode)
     #pragma warning restore IDE0060 // Remove unused parameter
+
     {
       if (State != WebSocketState.Open) { return; }
       // Reads the user Rando Spoilerlog.
@@ -477,7 +490,6 @@ namespace DreamCatcher
       SendSceneData(scene.name);
 
     }
-
     public void SendSceneData(string sceneName)
     {
       try
@@ -489,6 +501,16 @@ namespace DreamCatcher
       {
         Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{sceneName}\"}}");
       }
+    }
+
+    public void ManageTransitions(On.GameManager.orig_BeginSceneTransition orig, GameManager self, GameManager.SceneLoadInfo info)
+    {
+      if (info.SceneName == "GG_Entrance_Cutscene")
+      {
+        Send($"{{\"event\": \"new_game\"}}");
+      }
+      // TODO: Get roomname here!
+      orig(self, info);
     }
   }
 }

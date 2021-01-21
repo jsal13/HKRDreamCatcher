@@ -13,25 +13,13 @@
 function wsConnect() {
   ws = new WebSocket("ws://localhost:10051/data")
   ws.onmessage = m => { handleMessage(m.data); }
-  ws.onerror = e => { console.log("Error connecting to Websocket.  Is Hollow Knight running?"); };
-  ws.onopen = e => { if (e.target.readyState === 1) { console.log("okay, opened it."); window.isWSSAlive = 1; } }
+  ws.onerror = e => { console.log("[ERROR] Cannot connect to websocket.  Is Hollow Knight running?"); };
   ws.onclose = () => { setTimeout(() => { wsConnect(); }, 1000) };
 }
 
 $(window).on('load', function () {
-  window.isWSSAlive = 0
+  console.log("[OK] Connecting to websocket...")
   wsConnect();
-
-  pingWSSInterval = setInterval(() => {
-    if (window.isWSSAlive) {
-      console.log("Getting spoiler...")
-      ws.send("/get-spoiler")
-      window.setInterval(() => ws.send("/dreamers"), 10000)
-      window.setInterval(() => ws.send("/refresh-items"), 10000)
-      window.setInterval(() => ws.send('/get-scene', 10000))
-      clearInterval(pingWSSInterval)
-    }
-  }, 1000)
 })
 
 
@@ -43,12 +31,13 @@ function handleMessage(m) {
   // Handles incoming messages depending on the first key sent.
   try {
     var message = JSON.parse(m)
-    // console.log(message)
+    console.log(message)
 
     var messageType = Object.keys(message)[0]
     var messageVal = message[messageType]
 
     switch (messageType) {
+      // TODO: This is so gross.  Change the backend pls.
       case "spoiler":
         plotItemsOnPage(messageVal)
         break;
@@ -62,14 +51,37 @@ function handleMessage(m) {
         break;
 
       case "event":  // TODO: Should make a thing to handle events...
-        if (value === "load_save") {
-          console.log("Okay, a saved game huh, must be nice.")
-          console.log("Getting spoiler...")
-          ws.send("/spoiler")
-        } else if (value === "new_game") {
-          console.log("Okay, a new game huh, must be nice.")
-          console.log("Getting spoiler...")
-          ws.send("/spoiler")
+        if (messageVal === "load_save") {
+          console.log("[OK] Loading spoilers...")
+          ws.send("/get-spoiler-log")
+
+        }
+        else if (messageVal === "new_game") {
+          console.log("[OK] New Game Detected...")
+          console.log("[OK] Removing old DreamCatcher Log...")
+          ws.send("/recreate-dc-log")
+          console.log("[OK] Loading spoilers...")
+          ws.send("/get-spoiler-log")
+
+        } else if (messageVal === "websocket_open") {
+          console.log("[OK] Websocket connected.")
+          console.log("[OK] Loading spoilers...")
+          ws.send("/get-spoiler-log")
+
+          intervalTasks = window.setInterval(() => {
+            try {
+              ws.send("/ping-dreamers")
+              ws.send("/refresh-dc-log")
+              ws.send("/get-scene")
+            } catch (DOMException) {
+              clearInterval(intervalTasks)
+            }
+          }, 10000)
+
+        } else if (messageVal === "websocket_closed") {
+          clearInterval(intervalGetScene)
+          clearInterval(intervalPingDreamers)
+          clearInterval(intervalRefreshItems)
         }
         break;
 
@@ -77,20 +89,22 @@ function handleMessage(m) {
         break;
 
       case "dreamer": // Combine this with items below.
-        ws.send(`/add-to-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
+        ws.send(`/add-to-dc-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
         dimItemFound(messageVal, message["current_area"])
         break;
 
-      default: // we parse the item...
-        console.log("default evt:", messageVal)
+      case "item": // we parse the item...
         if (eventsToTrack.includes(messageVal) && message["current_area"] !== '') {
-          ws.send(`/add-to-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
+          ws.send(`/add-to-dc-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
           dimItemFound(messageVal, message["current_area"])
         }
         break;
+
+      default:
+        break;
     }
   } catch (e) {
-    console.log("[!!] Didn't parse:", m, e)
+    console.log("[ERROR] Didn't parse:", m, e)
   }
 }
 
