@@ -7,7 +7,7 @@ using Modding;
 using UnityEngine;
 using WebSocketSharp.Server;
 using RandomizerMod; // ??? am i not using this?
-
+using System.Reflection;
 
 namespace DreamCatcher
 {
@@ -38,7 +38,7 @@ namespace DreamCatcher
       _wss.Start();
       Log("[OK] Initialized Dreamcatcher HKItemLocDataDump Socket.");
     }
-
+    public override string GetVersion() => Assembly.GetExecutingAssembly().GetName().Version.ToString();
     public static string GetSpoilerLog()
     {
       string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
