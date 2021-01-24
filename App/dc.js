@@ -80,7 +80,7 @@ function handleMessage(m) {
             } catch (DOMException) {
               clearInterval(intervalTasks)
             }
-          }, 15000)
+          }, 10000)
 
         } else if (messageVal === "websocket_closed") {
           clearInterval(intervalGetScene)

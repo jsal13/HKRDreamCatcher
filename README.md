@@ -1,6 +1,8 @@
 # KHRDreamCatcher
 Hollow Knight Randomizer "Quick Mode" App.
 
+!["Example"](./example.png)
+
 ## Quick Start:
 
 1. Download the zip file and unzip it.
