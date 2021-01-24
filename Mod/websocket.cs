@@ -467,16 +467,32 @@ namespace DreamCatcher
     /// https://radiance.host/apidocs/Hooks.html
     public void MessageBool(string item, bool value)
     {
+      
       if (State != WebSocketState.Open) { return; }
-      UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-      var lowercaseBool = value ? "true" : "false";
-      Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+      try
+      {
+        UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        var lowercaseBool = value ? "true" : "false";
+        Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+
+      }
+      catch (Exception e)
+      {
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
+      }
     }
     public void MessageInt(string item, int value)
     {
       if (State != WebSocketState.Open) { return; }
-      UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-      Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+      try
+      {
+        UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
+      }
+      catch (Exception e)
+      {
+        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
+      }
     }
 
     #pragma warning disable IDE0060 // Remove unused parameter

@@ -31,13 +31,17 @@ function handleMessage(m) {
   // Handles incoming messages depending on the first key sent.
   try {
     var message = JSON.parse(m)
-    console.log(message)
+    //console.log(message)
 
     var messageType = Object.keys(message)[0]
     var messageVal = message[messageType]
 
     switch (messageType) {
       // TODO: This is so gross.  Change the backend pls.
+      case "exception":
+        console.log(message)
+        break;
+
       case "spoiler":
         plotItemsOnPage(messageVal)
         break;
@@ -76,7 +80,7 @@ function handleMessage(m) {
             } catch (DOMException) {
               clearInterval(intervalTasks)
             }
-          }, 10000)
+          }, 15000)
 
         } else if (messageVal === "websocket_closed") {
           clearInterval(intervalGetScene)
@@ -89,6 +93,8 @@ function handleMessage(m) {
         break;
 
       case "dreamer": // Combine this with items below.
+        // BUG: Pingdreamers will add an additional entry to your list if you restart the game.
+        // It pings, knows you have the dreamer, but puts the new area in.
         ws.send(`/add-to-dc-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
         dimItemFound(messageVal, message["current_area"])
         break;
@@ -113,11 +119,15 @@ function handleMessage(m) {
 // ===============
 
 function makeDivCSS(area) {
-  var divStyle = `background: ${locData[area]['background']}; 
+  try {
+    var divStyle = `background: ${locData[area]['background']}; 
         border: 6px solid ${locData[area]['border']};`
-  var circleStyle = `background: ${locData[area]['border']}; 
+    var circleStyle = `background: ${locData[area]['border']}; 
         border: 2px solid ${locData[area]['border']};`
-  return [divStyle, circleStyle]
+    return [divStyle, circleStyle]
+  } catch (e) {
+    console.log(e)
+  }
 }
 
 function plotItemsOnPage(areaItems) {
@@ -205,39 +215,39 @@ eventToBaseItem = {
   'Herrah': 'Herrah',
   'Monomon': 'Monomon',
   'Lurien': 'Lurien',
-  'simpleKeys': "Simple_Key",
-  'ore': "Ore",
-  'hasLantern': "Lumafly Lantern",
-  'hasDash': "Mothwing_Cloak",
-  'hasWalljump': "Mantis_Claw",
-  'hasSuperDash': "Crystal_Heart",
-  'hasShadowDash': "Mothwing_Cloak",
-  'hasAcidArmour': "Ismas_Tear",
-  'hasDoubleJump': "Monarch_Wings",
-  'hasHowlingWraiths': "Howling_Wraiths",
-  'hasAbyssShriek': "Howling_Wraiths",
-  'hasDesolateDive': "Desolate_Dive",
-  'hasDescendingDark': "Desolate_Dive",
-  'hasLantern': "Lumafly_Lantern",
-  'hasTramPass': "Tram_Pass",
-  'hasCityKey': "City_Crest",
-  'hasSlykey': "Shopkeeper_Key",
-  'hasWhiteKey': "Elegant_Key",
-  'hasLoveKey': "Love_Key",
-  'hasKingsBrand': "Kings_Brand",
-  'hasVengefulSpirit': "Vengeful_Spirit",
-  'hasShadeSoul': "Vengeful_Spirit",
-  'hasCyclone': "Cyclone_Slash",
-  'hasDashSlash': "Great_Slash", // [sic]
-  'hasUpwardSlash': "Dash_Slash",
-  'hasDreamNail': "Dream_Nail",
-  'hasDreamGate': "Dream_Nail",
   'dreamNailUpgraded': "Dream_Nail",
-  'hasPinGrub': "Grub",
-  // 'gotCharm_25': 'Unbreakable_Strength',
   'gotCharm_19': 'Shaman_Stone',
   'gotCharm_20': 'Soul_Catcher',
   'gotCharm_31': 'Dashmaster',
+  'hasAbyssShriek': "Howling_Wraiths",
+  'hasAcidArmour': "Ismas_Tear",
+  'hasCityKey': "City_Crest",
+  'hasCyclone': "Cyclone_Slash",
+  'hasDash': "Mothwing_Cloak",
+  'hasDashSlash': "Great_Slash", // [sic]
+  'hasDescendingDark': "Desolate_Dive",
+  'hasDesolateDive': "Desolate_Dive",
+  'hasDoubleJump': "Monarch_Wings",
+  'hasDreamGate': "Dream_Nail",
+  'hasDreamNail': "Dream_Nail",
+  'hasHowlingWraiths': "Howling_Wraiths",
+  'hasKingsBrand': "Kings_Brand",
+  'hasLantern': "Lumafly Lantern",
+  'hasLantern': "Lumafly_Lantern",
+  'hasLoveKey': "Love_Key",
+  'hasPinGrub': "Grub",
+  'hasShadeSoul': "Vengeful_Spirit",
+  'hasShadowDash': "Mothwing_Cloak",
+  'hasSlykey': "Shopkeeper_Key",
+  'hasSuperDash': "Crystal_Heart",
+  'hasTramPass': "Tram_Pass",
+  'hasUpwardSlash': "Dash_Slash",
+  'hasVengefulSpirit': "Vengeful_Spirit",
+  'hasWalljump': "Mantis_Claw",
+  'hasWhiteKey': "Elegant_Key",
+  'ore': "Ore",
+  'simpleKeys': "Simple_Key",
+  // 'gotCharm_25': 'Unbreakable_Strength',
 }
 
 //Here we make it so that the tracker shows the base version of the spell.
@@ -306,6 +316,7 @@ itemsToTrack = [
   "Dream Nail",
   "Howling Wraiths",
   "Isma's Tear",
+  "King's Brand",
   "Lumafly Lantern",
   "Mantis Claw",
   "Monarch Wings",
