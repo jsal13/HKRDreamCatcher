@@ -9,6 +9,7 @@ using System.Text;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.SceneManagement;
+using System.Diagnostics;
 
 namespace DreamCatcher
 {
@@ -19,6 +20,9 @@ namespace DreamCatcher
     private bool messagedMonomon = false;
     private bool messagedLurien = false;
     public string dreamCatcherPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherSpoilerLog.csv");
+    public static string dreamCatcherDebugPath = System.IO.Path.Combine(Application.persistentDataPath, "DreamCatcherDebug.log");
+    Stream debugFile = File.Create(dreamCatcherDebugPath);
+
     public Dictionary<string, string> roomMappings = new Dictionary<string, string>(){
       {"", ""},
       {"Menu_Title", ""},
@@ -394,6 +398,7 @@ namespace DreamCatcher
     };
     public SocketServer() => IgnoreExtensions = true;
 
+
     public void Broadcast(string s) => Sessions.Broadcast(s);
 
     protected override void OnOpen()
@@ -412,13 +417,23 @@ namespace DreamCatcher
     }
     protected override void OnMessage(WebSocketSharp.MessageEventArgs e)
     {
+      Trace.Listeners.Add(new TextWriterTraceListener(this.debugFile));
+      Trace.AutoFlush = true;
+
       try
       {
         if (e.Data == "/get-spoiler-log") { Send($"{{\"spoiler\": {HKItemLocDataDump.GetAndParseSpoilerLog()} }}"); }
         else if (e.Data == "/get-scene")
         {
           // Load a scene, the manager hook takes care of it from there.
-          UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+          try
+          {
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+          } catch (Exception ex)
+          {
+            Trace.WriteLine(ex.Message);
+            Trace.Flush();
+          }
         }
         else if (e.Data == "/ping-dreamers")
         {
@@ -428,9 +443,16 @@ namespace DreamCatcher
         }
         else if (e.Data == "/refresh-dc-log")
         {
-          var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
-          string joinedLines = String.Join(", ", lines.ToArray());
-          Send($"{{\"found-items\": [{joinedLines}]}}");
+          try
+          {
+            var lines = System.IO.File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray();
+            string joinedLines = String.Join(", ", lines.ToArray());
+            Send($"{{\"found-items\": [{joinedLines}]}}");
+          } catch (Exception ex)
+          {
+            Trace.WriteLine(ex.Message);
+            Trace.Flush();
+          }
         }
         else if (e.Data.StartsWith("/add-to-dc-log"))
         {
@@ -451,7 +473,8 @@ namespace DreamCatcher
       }
       catch (Exception ex)
       {
-        Send($"{ex}");
+        Trace.WriteLine(ex.Message);
+        Trace.Flush();
       }
     }
     protected override void OnError(WebSocketSharp.ErrorEventArgs e) => Send(e.Message);
@@ -476,9 +499,11 @@ namespace DreamCatcher
         Send($"{{\"item\": \"{item}\", \"value\": {lowercaseBool}, \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
 
       }
-      catch (Exception e)
+      catch (Exception ex)
       {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
+        Trace.WriteLine(ex.Message);
+        Trace.Flush();
+        //Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
       }
     }
     public void MessageInt(string item, int value)
@@ -489,9 +514,11 @@ namespace DreamCatcher
         UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         Send($"{{\"item\": \"{item}\", \"value\": \"{value}\", \"current_area\": \"{(string)roomMappings[scene.name]}\"}}");
       }
-      catch (Exception e)
+      catch (Exception ex)
       {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
+        //Send($"{{\"exception\": \"{e.Message}\", \"data\": \"[{item}, {value}]\"}}");
+        Trace.WriteLine(ex.Message);
+        Trace.Flush();
       }
     }
 
@@ -513,9 +540,11 @@ namespace DreamCatcher
         this.currentArea = (string)roomMappings[sceneName];
         Send($"{{\"scene\": \"{sceneName}\", \"scene_parsed\": \"{this.currentArea}\"}}");
       }
-      catch (Exception e)
+      catch (Exception ex)
       {
-        Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{sceneName}\"}}");
+        Trace.WriteLine(ex.Message);
+        Trace.Flush();
+        //Send($"{{\"exception\": \"{e.Message}\", \"data\": \"{sceneName}\"}}");
       }
     }
 

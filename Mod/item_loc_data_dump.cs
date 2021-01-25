@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using Modding;
 using UnityEngine;
 using WebSocketSharp.Server;
-using RandomizerMod; // ??? am i not using this?
+//using RandomizerMod;
 using System.Reflection;
 
 namespace DreamCatcher
@@ -16,13 +16,14 @@ namespace DreamCatcher
     public override int LoadPriority() => 9999;  // TODO: ???
     private readonly WebSocketServer _wss = new WebSocketServer(10051);
     internal static HKItemLocDataDump Instance;
-
+    
     /// <summary>
     /// Creates and starts up the Websocket Server instance.
     /// </summary>
     public override void Initialize()
     {
       Instance = this;
+
       Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
       _wss.AddWebSocketService<SocketServer>("/data", ss =>
       {
@@ -52,15 +53,6 @@ namespace DreamCatcher
     /// <returns></returns>
     public static string ParseSpoilerLog(string rawSpoilerText)
     {
-      /*List<string> relevantItems = new List<string>() {
-        "Herrah", "Lurien", "Monomon", "Dreamer", "Abyss Shriek", "Awoken Dream Nail", "Crystal Heart", "Descending Dark",
-        "Desolate Dive", "Dream Gate", "Dream Nail", "Howling Wraiths", "Isma's Tear", "Mantis Claw",
-        "Monarch Wings", "Mothwing Cloak", "Shade Cloak", "Shade Soul", "Vengeful Spirit", "City Crest",
-        "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment",
-        "King's Brand", "Love Key", "Lumafly Lantern", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak",
-        "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin",
-        "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart"
-      };*/
 
       Dictionary<string, string> smallAreaToGeneralArea = new Dictionary<string, string>(){
         {"Ancestral Mound", "Forgotten Crossroads"}, 
@@ -142,7 +134,6 @@ namespace DreamCatcher
 
           // It looks like [area, item1, item2, ...] so we skip 1 to exclude area:
           foreach (string item in splitstr2.Skip(1)) areaItemDict[area_].Add(item);
-          // before: if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
         }
       }
 
