@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using System.Linq;
+﻿using Modding;
 using Newtonsoft.Json;
-using Modding;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+//using RandomizerMod;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using WebSocketSharp.Server;
-using RandomizerMod; // ??? am i not using this?
-using System.Reflection;
 
 namespace DreamCatcher
 {
@@ -17,12 +17,10 @@ namespace DreamCatcher
     private readonly WebSocketServer _wss = new WebSocketServer(10051);
     internal static HKItemLocDataDump Instance;
 
-    /// <summary>
-    /// Creates and starts up the Websocket Server instance.
-    /// </summary>
     public override void Initialize()
     {
       Instance = this;
+
       Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
       _wss.AddWebSocketService<SocketServer>("/data", ss =>
       {
@@ -31,7 +29,7 @@ namespace DreamCatcher
 
         ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
         ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
+        // UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
         On.GameManager.BeginSceneTransition += ss.ManageTransitions;
       });
 
@@ -44,26 +42,12 @@ namespace DreamCatcher
       string userDataPath = System.IO.Path.Combine(Application.persistentDataPath, "RandomizerSpoilerLog.txt");
       return System.IO.File.ReadAllText(userDataPath);
     }
- 
-    /// <summary>
-    /// Regex Replacements for the Spoiler to make it nice.
-    /// </summary>
-    /// <param name="rawSpoilerText">The raw text for the spoiler log.</param>
-    /// <returns></returns>
+
     public static string ParseSpoilerLog(string rawSpoilerText)
     {
-      /*List<string> relevantItems = new List<string>() {
-        "Herrah", "Lurien", "Monomon", "Dreamer", "Abyss Shriek", "Awoken Dream Nail", "Crystal Heart", "Descending Dark",
-        "Desolate Dive", "Dream Gate", "Dream Nail", "Howling Wraiths", "Isma's Tear", "Mantis Claw",
-        "Monarch Wings", "Mothwing Cloak", "Shade Cloak", "Shade Soul", "Vengeful Spirit", "City Crest",
-        "Collector's Map", "Cyclone Slash", "Dash Slash", "Elegant Key", "Great Slash", "Grimmchild", "King Fragment",
-        "King's Brand", "Love Key", "Lumafly Lantern", "Pale Ore-Basin", "Pale Ore-Colosseum", "Pale Ore-Crystal Peak",
-        "Pale Ore-Grubs", "Pale Ore-Nosk", "Pale Ore-Seer", "Queen Fragment", "Shopkeeper's Key", "Simple Key-Basin",
-        "Simple Key-City", "Simple Key-Lurker", "Simple Key-Sly", "Tram Pass", "Void Heart"
-      };*/
 
       Dictionary<string, string> smallAreaToGeneralArea = new Dictionary<string, string>(){
-        {"Ancestral Mound", "Forgotten Crossroads"}, 
+        {"Ancestral Mound", "Forgotten Crossroads"},
         {"Beast\'s Den", "Deepnest"},
         {"Black Egg Temple", "Forgotten Crossroads"},
         {"Blue Lake", "Resting Grounds"},
@@ -111,17 +95,14 @@ namespace DreamCatcher
       // Replace the specific area with general areas above.
       foreach (KeyValuePair<string, string> kvp in smallAreaToGeneralArea) spoilerText = Regex.Replace(spoilerText, kvp.Key, kvp.Value, RegexOptions.Multiline);
 
-
       // Splitting up the spoiler so it looks like: "areaname: item1, item2, item3, ..." 
-
-      // take out blank lines.
       var spoilerArray = spoilerText
         .Split(new[] { "\n\n" }, StringSplitOptions.None)
         .Where(x => !String.IsNullOrEmpty(x))
         .ToList();
 
       // Creates the area-to-items dictionary.
-      var acc = 0;  
+      var acc = 0;
       Dictionary<string, List<string>> areaItemDict = new Dictionary<string, List<string>>();
       foreach (string row in spoilerArray)
       {
@@ -142,8 +123,8 @@ namespace DreamCatcher
 
           // It looks like [area, item1, item2, ...] so we skip 1 to exclude area:
           foreach (string item in splitstr2.Skip(1)) areaItemDict[area_].Add(item);
-          // before: if (relevantItems.Contains(item)) areaItemDict[area_].Add(item);
         }
+        acc += 1;
       }
 
       // Sort the areas alphabetically.
