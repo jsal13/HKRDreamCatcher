@@ -1,9 +1,5 @@
 //TODOS:
 // 2. White pieces?  What is this?
-// 3. How do we do ore + keys?
-// 4. Is there a "set state" we could work with?
-// 5. Keep checking names with mini runs.
-// 6. Condense datatypes.  We almost certainly don't need all these things.
 // Double abilities do not work; kill them off.
 
 // ===============================
@@ -30,83 +26,94 @@ $(window).on('load', function () {
 function handleMessage(m) {
   // Handles incoming messages depending on the first key sent.
   try {
-    var message = JSON.parse(m)
-    //console.log(message)
+    var event = JSON.parse(m)
+    // console.log(event)
 
-    var messageType = Object.keys(message)[0]
-    var messageVal = message[messageType]
+    var eventKey = event["event_key"]
+    var eventType = event["event_type"]
+    var eventVal = event["event_value"]
+    var eventCurrentArea = event["event_location"]
 
-    switch (messageType) {
-      // TODO: This is so gross.  Change the backend pls.
-      case "exception":
-        console.log(message)
-        break;
+    switch (eventKey) {
+      case "websocket":
+        switch (eventVal) {
+          case "open":
+            console.log("[OK] Websocket connected.")
+            console.log("[OK] Loading spoilers...")
+            ws.send("/get-spoiler-log")
 
-      case "spoiler":
-        plotItemsOnPage(messageVal)
-        break;
+            intervalTasks = window.setInterval(() => {
+              try {
+                ws.send("/ping-dreamers")
+                ws.send("/refresh-dc-log")
+                ws.send("/get-scene")
+              } catch (DOMException) {
+                clearInterval(intervalTasks)
+              }
+            }, 10000)
+            break; // websocket_status > open
 
-      case "found-items":
-        const foundItemArray = messageVal
-        for (var idx = 0; idx < foundItemArray.length; idx++) {
-          // Send a ping to the server to dim the item, but don't send an "add-to-log".
-          dimItemFound(foundItemArray[idx]['item'], foundItemArray[idx]['current_area'])
+          case "closed":
+            clearInterval(intervalGetScene)
+            clearInterval(intervalPingDreamers)
+            clearInterval(intervalRefreshItems)
+            break; // websocket_status > closed
         }
-        break;
+        break;  // websocket_status
 
-      case "event":  // TODO: Should make a thing to handle events...
-        if (messageVal === "load_save") {
-          console.log("[OK] Loading spoilers...")
-          ws.send("/get-spoiler-log")
+      case "game_level_event":
+        switch (eventVal) {
+          case "new_game":
+            console.log("[OK] New Game Detected...")
+            console.log("[OK] Removing old DreamCatcher Log...")
+            ws.send("/recreate-dc-log")
+            console.log("[OK] Loading spoilers...")
+            ws.send("/get-spoiler-log")
+            break; // game_level_event > new_game
 
+          case "load_game":
+            console.log("[OK] Loading spoilers...")
+            ws.send("/get-spoiler-log")
+            break; // game_level_event > load_game
         }
-        else if (messageVal === "new_game") {
-          console.log("[OK] New Game Detected...")
-          console.log("[OK] Removing old DreamCatcher Log...")
-          ws.send("/recreate-dc-log")
-          console.log("[OK] Loading spoilers...")
-          ws.send("/get-spoiler-log")
+        break; // game_level_event
 
-        } else if (messageVal === "websocket_open") {
-          console.log("[OK] Websocket connected.")
-          console.log("[OK] Loading spoilers...")
-          ws.send("/get-spoiler-log")
+      case "ping_event":
+        switch (eventType) {
+          case "spoiler":
+            plotItemsOnPage(JSON.parse(eventVal))
+            break; // ping_event > spoiler
 
-          intervalTasks = window.setInterval(() => {
-            try {
-              ws.send("/ping-dreamers")
-              ws.send("/refresh-dc-log")
-              ws.send("/get-scene")
-            } catch (DOMException) {
-              clearInterval(intervalTasks)
+          case "found_items":
+            const foundItemArray = JSON.parse(eventVal)
+            for (var idx = 0; idx < foundItemArray.length; idx++) {
+              // Don't send an "add-to-log".
+              dimItemFound(foundItemArray[idx]['item'], foundItemArray[idx]['event_location'])
             }
-          }, 10000)
+            break; // ping_event > found-items
 
-        } else if (messageVal === "websocket_closed") {
-          clearInterval(intervalGetScene)
-          clearInterval(intervalPingDreamers)
-          clearInterval(intervalRefreshItems)
+          case "dreamer":
+            // BUG: Pingdreamers will add an additional entry to your list if you restart the game.
+            // It pings, knows you have the dreamer, but puts the new area in.
+            ws.send(`/add-to-dc-log {"item": "${eventVal}", "event_location": "${eventCurrentArea}"}`)
+            dimItemFound(eventVal, eventCurrentArea)
+            break; // ping_event > dreamer
         }
-        break;
+        break; // ping_event
 
-      case "scene": // TODO: Do I need to send these?
-        break;
-
-      case "dreamer": // Combine this with items below.
-        // BUG: Pingdreamers will add an additional entry to your list if you restart the game.
-        // It pings, knows you have the dreamer, but puts the new area in.
-        ws.send(`/add-to-dc-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
-        dimItemFound(messageVal, message["current_area"])
-        break;
-
-      case "item": // we parse the item...
-        if (eventsToTrack.includes(messageVal) && message["current_area"] !== '') {
-          ws.send(`/add-to-dc-log {"item": "${messageVal}", "current_area": "${message["current_area"]}"}`)
-          dimItemFound(messageVal, message["current_area"])
+      case "item":
+        if (eventVal && eventsToTrack.includes(eventType) && eventCurrentArea !== '') {
+          ws.send(`/add-to-dc-log {"item": "${eventType}", "event_location": "${eventCurrentArea}"}`)
+          dimItemFound(eventType, eventCurrentArea)
         }
+        break; // item
+
+      case "scene_transition":
+        console.log("scene_transition", eventVal)
         break;
 
-      default:
+      case "exception":
+        console.log("Exception", eventVal);
         break;
     }
   } catch (e) {
@@ -232,7 +239,6 @@ eventToBaseItem = {
   'hasDreamNail': "Dream_Nail",
   'hasHowlingWraiths': "Howling_Wraiths",
   'hasKingsBrand': "Kings_Brand",
-  'hasLantern': "Lumafly Lantern",
   'hasLantern': "Lumafly_Lantern",
   'hasLoveKey': "Love_Key",
   'hasPinGrub': "Grub",
