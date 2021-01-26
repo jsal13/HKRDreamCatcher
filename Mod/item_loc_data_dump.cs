@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-//using RandomizerMod;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -13,7 +12,7 @@ namespace DreamCatcher
 {
   public class HKItemLocDataDump : Mod, ITogglableMod
   {
-    public override int LoadPriority() => 9999;  // TODO: ???
+    public override int LoadPriority() => 9999;
     private readonly WebSocketServer _wss = new WebSocketServer(10051);
     internal static HKItemLocDataDump Instance;
 
@@ -24,12 +23,10 @@ namespace DreamCatcher
       Log("[...] Initializing Dreamcatcher HKItemLocDataDump Socket.");
       _wss.AddWebSocketService<SocketServer>("/data", ss =>
       {
-        ModHooks.Instance.SavegameLoadHook += ss.LoadSave;
+        ModHooks.Instance.SavegameLoadHook += ss.OnLoadSave;
         ModHooks.Instance.ApplicationQuitHook += ss.OnQuit;
-
         ModHooks.Instance.SetPlayerBoolHook += ss.MessageBool;
         ModHooks.Instance.SetPlayerIntHook += ss.MessageInt;
-        // UnityEngine.SceneManagement.SceneManager.sceneLoaded += ss.MessageSceneLoaded;
         On.GameManager.BeginSceneTransition += ss.ManageTransitions;
       });
 
@@ -106,10 +103,8 @@ namespace DreamCatcher
       Dictionary<string, List<string>> areaItemDict = new Dictionary<string, List<string>>();
       foreach (string row in spoilerArray)
       {
-        var splitstr = row.Split('\n'); // toList was here before.
-        var area_ = splitstr[0].TrimEnd(':');
+        var area_ = row.Split('\n')[0].TrimEnd(':');
 
-        // If the area is already in there, don't add it again.
         if (areaItemDict.ContainsKey(area_)) { continue; }
         else areaItemDict[area_] = new List<string>();
 
@@ -136,7 +131,6 @@ namespace DreamCatcher
     }
 
     public static string GetAndParseSpoilerLog()
-    // TODO: Should I make the two methods above one?
     {
       var spoilerText = GetSpoilerLog();
       return ParseSpoilerLog(spoilerText);
