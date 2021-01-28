@@ -27,7 +27,6 @@ function handleMessage(m) {
   // Handles incoming messages depending on the first key sent.
   try {
     var event = JSON.parse(m)
-    // console.log(event)
 
     var eventKey = event["event_key"]
     var eventType = event["event_type"]
@@ -46,7 +45,6 @@ function handleMessage(m) {
               try {
                 ws.send("/ping-dreamers")
                 ws.send("/refresh-dc-log")
-                ws.send("/get-scene")
               } catch (DOMException) {
                 clearInterval(intervalTasks)
               }

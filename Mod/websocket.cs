@@ -62,45 +62,46 @@ namespace DreamCatcher
 
         protected override void OnMessage(MessageEventArgs e)
         {
-            switch (e.Data)
+            try
             {
-                case "/get-spoiler-log":
-                    Send(MakeEvent("ping_event", "spoiler", HKItemLocDataDump.ParseRegexedSpoilerLog(HKItemLocDataDump.GetSpoilerLog())));
-                    break;
+                switch (e.Data)
+                {
+                    case "/get-spoiler-log":
+                        Send(MakeEvent("ping_event", "spoiler", HKItemLocDataDump.ParseRegexedSpoilerLog(HKItemLocDataDump.GetSpoilerLog())));
+                        break;
 
-                case "/get-scene":
-                    // Uses the scenehook.
-                    UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                    break;
+                    case "/ping-dreamers":
+                        if (PlayerData.instance.monomonDefeated && !messagedMonomon) { Send(MakeEvent("ping_event", "dreamer", "Monomon")); messagedMonomon = true; }
+                        if (PlayerData.instance.lurienDefeated && !messagedLurien) { Send(MakeEvent("ping_event", "dreamer", "Lurien")); messagedLurien = true; }
+                        if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { Send(MakeEvent("ping_event", "dreamer", "Herrah")); messagedHerrah = true; }
+                        break;
 
-                case "/ping-dreamers":
-                    if (PlayerData.instance.monomonDefeated && !messagedMonomon) { Send(MakeEvent("ping_event", "dreamer", "Monomon")); messagedMonomon = true; }
-                    if (PlayerData.instance.lurienDefeated && !messagedLurien) { Send(MakeEvent("ping_event", "dreamer", "Lurien")); messagedLurien = true; }
-                    if (PlayerData.instance.hegemolDefeated && !messagedHerrah) { Send(MakeEvent("ping_event", "dreamer", "Herrah")); messagedHerrah = true; }
-                    break;
+                    case "/refresh-dc-log":
+                        // Gets contents of DC log for items already got, then sends them to the js side; if user refreshes webpage, eg.
+                        string dcLogText = String.Join(", ", (string[])File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray());
+                        Send(MakeEvent("ping_event", "found_items", $"[{dcLogText}]"));
+                        break;
 
-                case "/refresh-dc-log":
-                    // Gets contents of DC log for items already got, then sends them to the js side; if user refreshes webpage, eg.
-                    string dcLogText = String.Join(", ", (string[])File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)));
-                    Send(MakeEvent("ping_event", "found_items", $"[{dcLogText}]"));
-                    break;
+                    case "/recreate-dc-log":
+                        File.Delete(this.dreamCatcherPath);
+                        File.Create(this.dreamCatcherPath).Close();
+                        break;
 
-                case "/recreate-dc-log":
-                    File.Delete(this.dreamCatcherPath);
-                    File.Create(this.dreamCatcherPath).Close();
-                    break;
-
-                default:
-                    // add-to-dc-log has a payload arg after it; not sure how else to put it in this switch statement.
-                    if (e.Data.StartsWith("/add-to-dc-log"))
-                    {
-                        using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
+                    default:
+                        // add-to-dc-log has a payload arg after it; not sure how else to put it in this switch statement.
+                        if (e.Data.StartsWith("/add-to-dc-log"))
                         {
-                            outputFile.WriteLine($"{e.Data.Remove(0, 15)}");
+                            using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
+                            {
+                                outputFile.WriteLine($"{e.Data.Remove(0, 15)}");
+                            }
                         }
-                    }
-                        
-                    break;
+
+                        break;
+                }
+            } catch (Exception ex)
+            {
+                Send(ex.Message);
             }
         }
 
@@ -108,8 +109,8 @@ namespace DreamCatcher
         private bool ShouldNotProcessEvent(string eventMessage)
         {
             bool ignoredEvent = this.ignoreEvent.Contains(eventMessage);
-            bool ignoredStartsWith = !(eventMessage.StartsWith("killed") || eventMessage.StartsWith("kills") || eventMessage.StartsWith("newData") || eventMessage.StartsWith("opened"));
-            return ignoredEvent || ignoredStartsWith;
+            bool ignoredStartsWith = (eventMessage.StartsWith("killed") || eventMessage.StartsWith("kills") || eventMessage.StartsWith("newData") || eventMessage.StartsWith("opened"));
+            return ignoredEvent|| ignoredStartsWith;
         }
 
         public void MessageBool(string eventMessage, bool value)
@@ -137,7 +138,7 @@ namespace DreamCatcher
                 if (ShouldNotProcessEvent(eventMessage)) { return; }
 
                 UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                string roomName = this.roomMappings[scene.name];
+                string roomName = (string)this.roomMappings[scene.name];
                 Send(MakeEvent("item", eventMessage, value.ToString(), roomName));
             }
             catch
