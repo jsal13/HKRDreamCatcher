@@ -47,6 +47,7 @@ namespace DreamCatcher
 
             _wss.Start();
             Log("[OK] Initialized Dreamcatcher HKItemLocDataDump Socket.");
+
         }
         public override string GetVersion() => Assembly.GetExecutingAssembly().GetName().Version.ToString();
 

@@ -45,7 +45,11 @@ namespace DreamCatcher
 
         public void Broadcast(string s) => Sessions.Broadcast(s);
 
-        protected override void OnOpen() => Send(MakeEvent("websocket", "websocket_status", "open"));
+        protected override void OnOpen() {
+            Send(MakeEvent("websocket", "websocket_status", "open"));
+        }
+
+
         protected override void OnClose(CloseEventArgs e)
         {
             Send(MakeEvent("websocket", "websocket_status", "closed"));
@@ -78,25 +82,36 @@ namespace DreamCatcher
 
                     case "/refresh-dc-log":
                         // Gets contents of DC log for items already got, then sends them to the js side; if user refreshes webpage, eg.
-                        string dcLogText = String.Join(", ", (string[])File.ReadAllLines(dreamCatcherPath).Where(x => !string.IsNullOrEmpty(x)).ToArray());
-                        Send(MakeEvent("ping_event", "found_items", $"[{dcLogText}]"));
-                        break;
-
-                    case "/recreate-dc-log":
-                        File.Delete(this.dreamCatcherPath);
-                        File.Create(this.dreamCatcherPath).Close();
+                        try
+                        {
+                            using (FileStream fs = new FileStream(this.dreamCatcherPath, FileMode.Open, FileAccess.Read))
+                            {
+                                using (StreamReader sr = new StreamReader(fs))
+                                {
+                                    string _line = sr.ReadLine().ToString();
+                                    Send(MakeEvent("ping_event", "found_items", $"{_line}"));
+                                }
+                            }
+                        } 
+                        catch
+                        {
+                            Send(MakeEvent("ping_event", "spoiler", HKItemLocDataDump.ParseRegexedSpoilerLog(HKItemLocDataDump.GetSpoilerLog())));
+                        }
                         break;
 
                     default:
                         // add-to-dc-log has a payload arg after it; not sure how else to put it in this switch statement.
-                        if (e.Data.StartsWith("/add-to-dc-log"))
+                        if (e.Data.StartsWith("/update-dc-log"))
                         {
-                            using (StreamWriter outputFile = new StreamWriter(this.dreamCatcherPath, true))
+                            using (FileStream fs = new FileStream(this.dreamCatcherPath, FileMode.OpenOrCreate, FileAccess.ReadWrite))
                             {
-                                outputFile.WriteLine($"{e.Data.Remove(0, 15)}");
+                                using (StreamWriter sw = new StreamWriter(fs))
+                                {
+                                    fs.SetLength(0);
+                                    sw.WriteLine($"{e.Data.Remove(0, 15)}");
+                                }
                             }
                         }
-
                         break;
                 }
             } catch (Exception ex)

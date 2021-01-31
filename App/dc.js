@@ -16,12 +16,15 @@ function wsConnect() {
 $(window).on('load', function () {
   console.log("[OK] Connecting to websocket...")
   wsConnect();
+
 })
 
 
 // ================
 // MESSAGE HANDLING
 // ================
+
+// handleMessage('{"event_key": "item", "event_type": "hasDesolateDive", "event_value": true, "event_location": "Abyss"}')
 
 function handleMessage(m) {
   // Handles incoming messages depending on the first key sent.
@@ -34,12 +37,16 @@ function handleMessage(m) {
     var eventCurrentArea = event["event_location"]
 
     switch (eventKey) {
+
       case "websocket":
         switch (eventVal) {
+
           case "open":
             console.log("[OK] Websocket connected.")
             console.log("[OK] Loading spoilers...")
-            ws.send("/get-spoiler-log")
+
+            // Send spoiler if dc log doesn't exist, or send dc log.
+            ws.send("/refresh-dc-log")
 
             intervalTasks = window.setInterval(() => {
               try {
@@ -49,74 +56,101 @@ function handleMessage(m) {
                 clearInterval(intervalTasks)
               }
             }, 10000)
-            break; // websocket_status > open
+            break;
 
           case "closed":
-            clearInterval(intervalGetScene)
-            clearInterval(intervalPingDreamers)
-            clearInterval(intervalRefreshItems)
-            break; // websocket_status > closed
+            // TODO: Do I need this?
+            clearInterval(intervalTasks)
+            break;
         }
-        break;  // websocket_status
+        break;
 
       case "game_level_event":
         switch (eventVal) {
+
           case "new_game":
-            console.log("[OK] New Game Detected...")
-            console.log("[OK] Removing old DreamCatcher Log...")
-            ws.send("/recreate-dc-log")
-            console.log("[OK] Loading spoilers...")
+            console.log("[OK] New Game Detected, Loading Spoilers...")
             ws.send("/get-spoiler-log")
-            break; // game_level_event > new_game
+            break;
 
           case "load_game":
             console.log("[OK] Loading spoilers...")
-            ws.send("/get-spoiler-log")
-            break; // game_level_event > load_game
+            ws.send("/refresh-dc-log")
+            break;
         }
-        break; // game_level_event
+        break;
 
       case "ping_event":
         switch (eventType) {
+
           case "spoiler":
-            plotItemsOnPage(JSON.parse(eventVal))
-            break; // ping_event > spoiler
+            var sp = JSON.parse(eventVal)
+            parseSpoilerLog(sp)
+            ws.send(`/update-dc-log ${JSON.stringify(window.spoilerData)}`)
+            plotItemsOnPage()
+            break;
 
           case "found_items":
-            const foundItemArray = JSON.parse(eventVal)
-            for (var idx = 0; idx < foundItemArray.length; idx++) {
-              // Don't send an "add-to-log".
-              dimItemFound(foundItemArray[idx]['item'], foundItemArray[idx]['event_location'])
-            }
-            break; // ping_event > found-items
+            console.log(eventVal)
+            // console.log(JSON.parse(eventVal))
+            window.spoilerData = JSON.parse(eventVal)
+            plotItemsOnPage()
+            break;
 
           case "dreamer":
             // BUG: Pingdreamers will add an additional entry to your list if you restart the game.
             // It pings, knows you have the dreamer, but puts the new area in.
-            ws.send(`/add-to-dc-log {"item": "${eventVal}", "event_location": "${eventCurrentArea}"}`)
-            dimItemFound(eventVal, eventCurrentArea)
-            break; // ping_event > dreamer
+            ws.send(`/update-dc-log ${JSON.stringify(window.spoilerData)}`)
+            break;
         }
-        break; // ping_event
+        break;
 
       case "item":
-        if (eventVal && eventsToTrack.includes(eventType) && eventCurrentArea !== '') {
-          ws.send(`/add-to-dc-log {"item": "${eventType}", "event_location": "${eventCurrentArea}"}`)
-          dimItemFound(eventType, eventCurrentArea)
+        if (eventVal && eventsToTrack.includes(eventToBaseEvent[eventType] || eventType) && eventCurrentArea !== '') {
+          toggleFoundInSpoiler(_eventTypeBase, eventCurrentArea)
+          ws.send(`/update-dc-log ${JSON.stringify(window.spoilerData)}`)
         }
-        break; // item
-
-      case "scene_transition":
-        console.log("scene_transition", eventVal)
         break;
 
       case "exception":
         console.log("Exception", eventVal);
         break;
+
+      default:
+        break;
     }
   } catch (e) {
     console.log("[ERROR] Didn't parse:", m, e)
   }
+}
+
+function toggleFoundInSpoiler(eventType, eventCurrentArea) {
+
+  const _areaData = window.spoilerData[eventCurrentArea]
+  try {
+    for (var idx = 0; idx < _areaData.length; idx++) {
+      if (_areaData[idx]["event"] === eventType && !_areaData[idx]["found"]) {
+        _areaData[idx]["found"] = true
+        console.log("marking off", _areaData[idx])
+        break;
+      }
+    }
+    plotItemsOnPage()
+  } catch (ex) {
+    console.log(eventType, eventCurrentArea, ex);
+  }
+}
+
+function parseSpoilerLog(spoilerJSON) {
+  // Note: here we take eventToBaseItem[itemToBaseEvent[i]] since we're mapping a collection of many possible
+  // items to a single base event, then mapping that event to a single base item.  Think: grubs in diff locs, etc.
+
+  window.spoilerData = Object.entries(spoilerJSON)
+    .map(x => { return [x[0], x[1].filter(s => itemsToTrack.includes(s))] }) // filters out unwanted items.
+    .filter(x => x[1].length > 0) // filters empty areas
+    .map(x => { return [x[0], x[1].map(i => { return { 'item': eventToBaseItem[itemToBaseEvent[i]], 'found': false, 'show': true, 'event': itemToBaseEvent[i] } })] })
+
+  window.spoilerData = Object.fromEntries(window.spoilerData)
 }
 
 // ===============
@@ -135,38 +169,42 @@ function makeDivCSS(area) {
   }
 }
 
-function plotItemsOnPage(areaItems) {
+function plotItemsOnPage() {
   $("#tracker-table").empty()
 
   var html_ = ""
-  const areas = Object.keys(areaItems)
-  for (var idx = 0; idx < areas.length; idx++) {
-    const thisAreaItems = areaItems[areas[idx]]
+  const areas = Object.keys(window.spoilerData)
 
-    // All the image tags for the tracker.
+  for (var idx = 0; idx < areas.length; idx++) {
+    const thisAreaItems = window.spoilerData[areas[idx]]
+    const thisAreaLocData = areas[idx]
     const [divStyle, circleStyle] = makeDivCSS(areas[idx])
-    var trackerImages_ = ""
+    var trackerImagesHTML = ""
+
     for (var jdx = 0; jdx < thisAreaItems.length; jdx++) {
-      var _event = itemToBaseEvent[thisAreaItems[jdx]];
-      if (eventsToTrack.includes(_event)) {
-        trackerImages_ += `
+      if (thisAreaItems[jdx]["show"]) {
+        var _event = thisAreaItems[jdx]["event"];
+        var _item = thisAreaItems[jdx]["item"];
+        var _found = thisAreaItems[jdx]["found"]
+
+        trackerImagesHTML += `
         <div class="tracker-image">
-          <img class="item-image ${_event}_${locData[areas[idx]]["display"]}" src="./images/${eventToBaseItem[_event]}.png"/>
+          <img class="item-image ${_found ? 'item-found' : ''} ${_event}_${thisAreaLocData}" src="./images/${_item}.png"/>
         </div>`
       }
     }
 
-    if (trackerImages_ !== "") {
+    if (trackerImagesHTML !== "") {
       html_ += `
     <div class="area-pill">
       <div class="area-pill-inner" style="${divStyle}">
         <div class="area-pill-rounded-edge" style="${circleStyle}">
           <div class="area-pill-area-title-div">
-            <span class="area-pill-area-title-text">${locData[areas[idx]]["abbr"]}</span>
+            <span class="area-pill-area-title-text">${locData[thisAreaLocData]["abbr"]}</span>
           </div>
         </div>
         <div class="pill-items-container">
-          ${trackerImages_}
+          ${trackerImagesHTML}
         </div>
       </div>
     </div>`
@@ -177,12 +215,13 @@ function plotItemsOnPage(areaItems) {
 
 function dimItemFound(itemEvent, locWithUnderscores) {
   // Due to the 10 second lag and the uniqueness of the dreamers, we should just look for their name.
-  console.log("Okay, dimming:", itemEvent, locWithUnderscores)
-  var isDreamerItem = ["Monomon", "Lurien", "Herrah"].includes(itemEvent)
-  var _loc = isDreamerItem ? "" : `_${locWithUnderscores}`
+  // var _loc = ["Monomon", "Lurien", "Herrah"].includes(itemEvent) ? "" : `_${locWithUnderscores}`
+  // const selector = $(`img[class*="${itemEvent}${_loc}"]:not(.item-found)`)
 
-  const selector = $(`img[class*="${itemEvent}${_loc}"]:not(.item-found)`)
-  selector.first().addClass("item-found")
+  // if (typeof selector !== 'undefined' && selector.length > 0) {
+  //   console.log("Okay, dimming:", itemEvent, locWithUnderscores)
+  //   selector.first().addClass("item-found")
+  // }
 
 }
 
@@ -190,31 +229,36 @@ function dimItemFound(itemEvent, locWithUnderscores) {
 // CONSTANTS
 // =========
 const locData = {
-  'Abyss': { background: "#707170", border: "#242524", abbr: "Abyss", display: 'Abyss' },
-  'Ancient Basin': { background: "#73747d", border: "#282a37", abbr: "AnBsn", display: 'Ancient_Basin' },
-  'City of Tears': { background: "#6b89a9", border: "#1b4a7b", abbr: "CityT", display: 'City_of_Tears' },
-  'Crystal Peak': { background: "#b588b0", border: "#95568f", abbr: "CryPk", display: 'Crystal_Peak' },
-  'Deepnest': { background: "#666b80", border: "#141c3c", abbr: "DNest", display: 'Deepnest' },
-  'Dirtmouth': { background: "#787994", border: "#2f315b", abbr: "Dirtm", display: 'Dirtmouth' },
-  'Fog Canyon': { background: "#9da3bd", border: "#5b6591", abbr: "FogCn", display: 'Fog_Canyon' },
-  'Forgotten Crossroads': {
-    background: "#687796", border: "#202d5d", abbr: "XRoad", display: 'Forgotten_Crossroads'
-  },
-  'Fungal Wastes': { background: "#58747c", border: "#113945", abbr: "FungW", display: 'Fungal_Wastes' },
-  'Greenpath': { background: "#679487", border: "#155b47", abbr: "GPath", display: 'Greenpath' },
-  'Hive': { background: "#C17F6E", border: "#A64830", abbr: "Hive", display: 'Hive' },
-  'Howling Cliffs': { background: "#75809a", border: "#3b4a6f", abbr: "HClif", display: 'Howling_Cliffs' },
-  'Kingdom\'s Edge': { background: "#768384", border: "#3c4e50", abbr: "KEdge", display: 'Kingdoms_Edge' },
-  'Queen\'s Gardens': { background: "#559f9d", border: "#0d7673", abbr: "QGdn", display: 'Queens_Gardens' },
-  'Resting Grounds': { background: "#84799d", border: "#423169", abbr: "RestG", display: 'Resting_Grounds' },
-  'Royal Waterways': { background: "#6d919d", border: "#1e5669", abbr: "RWatr", display: 'Royal_Waterways' },
+  'Abyss': { background: "#707170", border: "#242524", abbr: "Abyss" },
+  'Ancient_Basin': { background: "#73747d", border: "#282a37", abbr: "AnBsn" },
+  'City_of_Tears': { background: "#6b89a9", border: "#1b4a7b", abbr: "CityT" },
+  'Crystal_Peak': { background: "#b588b0", border: "#95568f", abbr: "CryPk" },
+  'Deepnest': { background: "#666b80", border: "#141c3c", abbr: "DNest" },
+  'Dirtmouth': { background: "#787994", border: "#2f315b", abbr: "Dirtm" },
+  'Fog_Canyon': { background: "#9da3bd", border: "#5b6591", abbr: "FogCn" },
+  'Forgotten_Crossroads': { background: "#687796", border: "#202d5d", abbr: "XRoad" },
+  'Fungal_Wastes': { background: "#58747c", border: "#113945", abbr: "FungW" },
+  'Greenpath': { background: "#679487", border: "#155b47", abbr: "GPath" },
+  'Hive': { background: "#C17F6E", border: "#A64830", abbr: "Hive" },
+  'Howling_Cliffs': { background: "#75809a", border: "#3b4a6f", abbr: "HClif" },
+  'Kingdoms_Edge': { background: "#768384", border: "#3c4e50", abbr: "KEdge" },
+  'Queens_Gardens': { background: "#559f9d", border: "#0d7673", abbr: "QGdn" },
+  'Resting_Grounds': { background: "#84799d", border: "#423169", abbr: "RestG" },
+  'Royal_Waterways': { background: "#6d919d", border: "#1e5669", abbr: "RWatr" },
 }
 
-
-// Collector's map?  
-// This goes to the base item.
-
 // Ore, Simplekeys is weird.  Ore has a += 1 sort of thing going on when you collect it, so it has to be treated differently.
+
+// Only upgrade items appear here.
+eventToBaseEvent = {
+  "hasAbyssShriek": "hasHowlingWraiths",
+  "hasDescendingDark": "hasDesolateDive",
+  "hasDreamGate": "hasDreamNail",
+  "dreamNailUpgraded": "hasDreamNail",
+  "hasShadowDash": "hasDash",
+  "hasShadeSoul": "hasVengefulSpirit"
+}
+
 eventToBaseItem = {
   'scene': '',
   'Herrah': 'Herrah',
